@@ -120,12 +120,10 @@ class AnalyzerAgent:
 
         Logger.debug("Running all agents")
 
-        # فقط coroutine ها رو اجرا کن
         results = await asyncio.gather(*(t[1] for t in tasks), return_exceptions=True)
 
         Logger.debug("All agents finished")
 
-        # لاگ با agent واقعی
         for i, result in enumerate(results):
             agent = tasks[i][0]
             if isinstance(result, Exception):
