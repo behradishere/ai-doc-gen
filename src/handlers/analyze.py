@@ -1,10 +1,10 @@
 from opentelemetry import trace
 
 from agents.analyzer import AnalyzerAgent, AnalyzerAgentConfig
+from utils import Logger
 from utils.repo import get_repo_version
 
 from .base_handler import BaseHandler, BaseHandlerConfig
-from utils import Logger
 
 
 class AnalyzeHandlerConfig(BaseHandlerConfig, AnalyzerAgentConfig):

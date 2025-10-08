@@ -1,8 +1,8 @@
 from opentelemetry import trace
 
 from agents.documenter import DocumenterAgent, DocumenterAgentConfig
-from utils.repo import get_repo_version
 from utils import Logger
+from utils.repo import get_repo_version
 
 from .base_handler import BaseHandler, BaseHandlerConfig
 
