@@ -20,6 +20,7 @@ def str_to_bool(value: str) -> bool:
     else:
         raise ValueError(f"Invalid boolean value: {value}")
 
+
 VERSION = os.getenv("APP_VERSION", "1.2.0")
 
 # Analyzer

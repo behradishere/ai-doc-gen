@@ -26,6 +26,7 @@ class AnalyzerAgentConfig(BaseModel):
     exclude_request_flow: bool = Field(default=False, description="Exclude request flow analysis")
     exclude_api_analysis: bool = Field(default=False, description="Exclude api analysis")
 
+
 class AnalyzerAgent:
     def __init__(self, cfg: AnalyzerAgentConfig) -> None:
         self._config = cfg

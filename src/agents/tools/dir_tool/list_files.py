@@ -9,7 +9,6 @@ from pydantic_ai import Tool
 import config
 from utils import Logger
 
-
 DEFAULT_IGNORED_DIRS = [
     # Version Control
     ".git",  # Git repository metadata

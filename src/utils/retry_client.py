@@ -15,9 +15,8 @@ This is useful when calling APIs that might be temporarily unavailable.
 """
 
 from httpx import AsyncClient, HTTPStatusError
-from tenacity import stop_after_attempt, wait_exponential, retry_if_exception_type
-
 from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
+from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 
 def create_retrying_client() -> AsyncClient:
