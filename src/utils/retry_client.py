@@ -15,10 +15,9 @@ This is useful when calling APIs that might be temporarily unavailable.
 """
 
 from httpx import AsyncClient, HTTPStatusError
-from pydantic_ai.retries import AsyncTenacityTransport, wait_retry_after
-from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import stop_after_attempt, wait_exponential, retry_if_exception_type
 
-import config
+from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
 
 
 def create_retrying_client() -> AsyncClient:
@@ -30,7 +29,8 @@ def create_retrying_client() -> AsyncClient:
         - Retry on server errors (429, 502, 503, 504) and connection issues
         - Wait according to server "Retry-After" headers
         - Use exponential backoff when no retry header is present
-        - Configurable retry attempts, wait times, and backoff strategy via environment variables
+        - Try up to 5 times before giving up
+        - Wait maximum 60 seconds between retries, 300 seconds total
 
     Example:
         client = create_retrying_client()
@@ -57,23 +57,21 @@ def create_retrying_client() -> AsyncClient:
 
     # Create the transport layer with retry logic
     transport = AsyncTenacityTransport(
-        controller=AsyncRetrying(
+        config=RetryConfig(
             # What errors to retry on:
             # - HTTPStatusError: For 4xx/5xx HTTP errors
             # - ConnectionError: For network connection issues
             retry=retry_if_exception_type((HTTPStatusError, ConnectionError)),
             # How long to wait between retries:
             # - First checks for "Retry-After" header from server
-            # - If no header, uses exponential backoff (configurable multiplier)
-            # - Maximum wait: configurable per attempt and total
+            # - If no header, uses exponential backoff (1s, 2s, 4s, etc.)
+            # - Maximum wait: 60s between attempts, 300s total
             wait=wait_retry_after(
-                fallback_strategy=wait_exponential(
-                    multiplier=config.HTTP_RETRY_MULTIPLIER, max=config.HTTP_RETRY_MAX_WAIT_PER_ATTEMPT
-                ),
-                max_wait=config.HTTP_RETRY_MAX_TOTAL_WAIT,
+                fallback_strategy=wait_exponential(multiplier=1, max=60),
+                max_wait=300,
             ),
             # When to stop trying:
-            stop=stop_after_attempt(config.HTTP_RETRY_MAX_ATTEMPTS),
+            stop=stop_after_attempt(5),  # Give up after 5 attempts
             # What to do when all retries fail:
             reraise=True,  # Raise the last exception so caller knows it failed
         ),
