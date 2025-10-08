@@ -20,6 +20,7 @@ def str_to_bool(value: str) -> bool:
     else:
         raise ValueError(f"Invalid boolean value: {value}")
 
+
 VERSION = os.getenv("APP_VERSION", "1.2.0")
 
 # Analyzer
@@ -134,7 +135,7 @@ def load_config_as_dict(args, handler_config: Type[BaseModel]) -> dict:
     config = {}
 
     for field_name, field_info in handler_config.model_fields.items():
-        if issubclass(field_info.annotation, BaseModel):
+        if issubclass(type(field_info.annotation), BaseModel):
             config[field_name] = load_config_as_dict(args, field_info.annotation)
 
         elif hasattr(args, field_name) and getattr(args, field_name) is not None:

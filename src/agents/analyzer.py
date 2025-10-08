@@ -27,10 +27,6 @@ class AnalyzerAgentConfig(BaseModel):
     exclude_api_analysis: bool = Field(default=False, description="Exclude api analysis")
 
 
-class AnalyzerResult(BaseModel):
-    markdown_content: str = Field(..., description="The markdown content of the analysis")
-
-
 class AnalyzerAgent:
     def __init__(self, cfg: AnalyzerAgentConfig) -> None:
         self._config = cfg
@@ -149,7 +145,7 @@ class AnalyzerAgent:
             async with agent:
                 result: AgentRunResult = await agent.run(
                     user_prompt=user_prompt,
-                    output_type=AnalyzerResult,
+                    output_type=str,
                 )
             total_time = int(time.time() - start_time)
             Logger.info(
@@ -167,11 +163,11 @@ class AnalyzerAgent:
                 file_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(file_path, "w") as f:
-                output = self._cleanup_output(result.output.markdown_content)
+                output = self._cleanup_output(result.output)
                 f.write(output)
 
                 Logger.info(f"{agent.name} result saved to {file_path}")
-                trace.get_current_span().set_attribute(f"{agent.name} result", result.output.markdown_content)
+                trace.get_current_span().set_attribute(f"{agent.name} result", result.output)
 
         except UnexpectedModelBehavior as e:
             Logger.info(f"Unexpected model behavior: {e}")
@@ -210,7 +206,7 @@ class AnalyzerAgent:
             name="Structure Analyzer",
             model=model,
             model_settings=model_settings,
-            output_type=AnalyzerResult,
+            output_type=str,
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.structure_analyzer.system_prompt"),
             tools=[
@@ -282,7 +278,7 @@ class AnalyzerAgent:
             name="API Analyzer",
             model=model,
             model_settings=model_settings,
-            output_type=AnalyzerResult,
+            output_type=str,
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.api_analyzer.system_prompt"),
             tools=[

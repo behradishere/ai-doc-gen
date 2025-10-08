@@ -1,427 +1,841 @@
+Now I have enough information to create a comprehensive dependency analysis. Let me compile the final document:
+
 # Dependency Analysis
 
 ## Internal Dependencies Map
 
-### Core Module Dependencies
+### Module Dependency Hierarchy
 
-**Main Entry Point (`src/main.py`)**
-- **Direct Dependencies**: `config`, `handlers.analyze`, `handlers.cronjob`, `handlers.readme`, `utils.Logger`
-- **External Dependencies**: `argparse`, `asyncio`, `logging`, `pathlib`, `logfire`, `nest_asyncio`, `gitlab`, `pydantic`
-- **Role**: Application orchestrator and CLI interface
+The project follows a clean layered architecture with well-defined dependency flows:
 
-**Configuration System (`src/config.py`)**
-- **Direct Dependencies**: `utils.dict` (merge_dicts function)
-- **External Dependencies**: `os`, `pathlib`, `yaml`, `dotenv`, `pydantic`
-- **Role**: Centralized configuration management with multi-source merging
+**Layer 1: Entry Point**
+- `src/main.py` - Application entry point and CLI orchestration
+  - Depends on: `config`, `handlers.*`, `utils.Logger`
+  - External: `argparse`, `asyncio`, `logging`, `pathlib`, `logfire`, `nest_asyncio`, `gitlab`, `pydantic`
 
-**Handler Layer**
-- **Base Handler (`handlers/base_handler.py`)**: No internal dependencies, uses `pydantic` for validation
-- **Analyze Handler (`handlers/analyze.py`)**: Depends on `agents.analyzer`, `handlers.base_handler`
-- **README Handler (`handlers/readme.py`)**: Depends on `agents.documenter`, `handlers.base_handler`
-- **Cronjob Handler (`handlers/cronjob.py`)**: Depends on `handlers.analyze`, `handlers.base_handler`, `config`, `utils.Logger`, `utils.dict`
+**Layer 2: Configuration Management**
+- `src/config.py` - Multi-source configuration loading and merging
+  - Depends on: `utils.dict.merge_dicts`
+  - External: `yaml`, `dotenv`, `pydantic`
+  - Provides: Global configuration constants and loading functions
 
-**Agent System**
-- **AnalyzerAgent (`agents/analyzer.py`)**: Depends on `agents.tools`, `utils.Logger`, `utils.PromptManager`, `config`
-- **DocumenterAgent (`agents/documenter.py`)**: Depends on `agents.tools`, `utils.Logger`, `utils.PromptManager`, `utils.custom_models.gemini_provider`, `config`
+**Layer 3: Handler Layer**
+- `src/handlers/base_handler.py` - Abstract base handler with config path resolution
+  - Depends on: `pydantic` only
+  - Provides: `AbstractHandler`, `BaseHandlerConfig`
 
-**Tool System**
-- **Tools Package (`agents/tools/__init__.py`)**: Exports `FileReadTool` and `ListFilesTool`
-- **FileReadTool (`agents/tools/file_tool/file_reader.py`)**: No internal dependencies
-- **ListFilesTool (`agents/tools/dir_tool/list_files.py`)**: No internal dependencies
+- `src/handlers/analyze.py` - Analysis orchestration handler
+  - Depends on: `agents.analyzer`, `utils.repo`, `utils.Logger`, `base_handler`
+  - External: `opentelemetry.trace`
 
-**Utility Layer**
-- **Logger (`utils/logger.py`)**: No internal dependencies
-- **PromptManager (`utils/prompt_manager.py`)**: No internal dependencies
-- **Repository Utils (`utils/repo.py`)**: No internal dependencies
-- **Dictionary Utils (`utils/dict.py`)**: No internal dependencies
-- **Custom Models (`utils/custom_models/gemini_provider.py`)**: No internal dependencies
+- `src/handlers/readme.py` - Documentation generation handler
+  - Depends on: `agents.documenter`, `utils.repo`, `utils.Logger`, `base_handler`
+  - External: `opentelemetry.trace`
 
-### Dependency Flow Patterns
+- `src/handlers/cronjob.py` - Automated GitLab project analysis
+  - Depends on: `config`, `handlers.analyze`, `utils.*`, `base_handler`
+  - External: `git.Repo`, `gitlab`, `shutil`, `datetime`
 
-**Configuration Flow**: `main.py` → `config.py` → `utils.dict` → Handler instantiation
-**Execution Flow**: `main.py` → Handler → Agent → Tools → External APIs
-**Logging Flow**: All modules → `utils.Logger` → File/Console output
-**Template Flow**: Agents → `utils.PromptManager` → YAML templates → Jinja2 rendering
+**Layer 4: Agent Layer**
+- `src/agents/analyzer.py` - Multi-agent code analysis coordinator
+  - Depends on: `config`, `utils.*`, `agents.tools.*`
+  - External: `pydantic_ai`, `opentelemetry`, `asyncio`, `time`
+  - Manages: 5 concurrent specialized analyzer agents
+
+- `src/agents/documenter.py` - README generation agent
+  - Depends on: `config`, `utils.*`, `agents.tools.FileReadTool`
+  - External: `pydantic_ai`, `opentelemetry`, `time`
+
+**Layer 5: Tool Layer**
+- `src/agents/tools/file_tool/file_reader.py` - File content reading tool
+  - Depends on: `config`, `utils.Logger`
+  - External: `pydantic_ai.Tool`, `opentelemetry.trace`
+
+- `src/agents/tools/dir_tool/list_files.py` - Directory traversal tool
+  - Depends on: `config`, `utils.Logger`
+  - External: `pydantic_ai.Tool`, `opentelemetry.trace`
+  - Features: 200+ ignored directories/extensions for filtering
+
+**Layer 6: Utility Layer**
+- `src/utils/logger.py` - Centralized structured logging
+  - Dependencies: None (pure utility)
+  - External: `logging`, `ujson`, `pathlib`, `datetime`
+
+- `src/utils/prompt_manager.py` - YAML-based prompt template management
+  - Dependencies: None
+  - External: `jinja2`, `yaml`, `pathlib`
+
+- `src/utils/retry_client.py` - HTTP client with retry logic
+  - Dependencies: None
+  - External: `httpx`, `tenacity`, `pydantic_ai.retries`
+
+- `src/utils/repo.py` - Git repository metadata extraction
+  - Dependencies: None
+  - External: `git.Repo` (GitPython), `subprocess`, `pathlib`
+
+- `src/utils/dict.py` - Dictionary merging utilities
+  - Dependencies: None (pure utility)
+
+- `src/utils/custom_models/gemini_provider.py` - Custom Gemini AI provider
+  - Dependencies: None
+  - External: `pydantic_ai.providers.google_gla`
+
+### Dependency Flow Diagram
+
+```
+main.py
+  ├─→ config.py ──→ utils.dict
+  ├─→ handlers/
+  │     ├─→ base_handler.py
+  │     ├─→ analyze.py ──→ agents.analyzer
+  │     ├─→ readme.py ──→ agents.documenter
+  │     └─→ cronjob.py ──→ handlers.analyze
+  │
+  └─→ agents/
+        ├─→ analyzer.py ──→ tools/* ──→ utils/*
+        └─→ documenter.py ──→ tools/file_reader ──→ utils/*
+
+utils/ (shared across all layers)
+  ├─→ logger.py (no internal deps)
+  ├─→ prompt_manager.py (no internal deps)
+  ├─→ retry_client.py (no internal deps)
+  ├─→ repo.py (no internal deps)
+  ├─→ dict.py (no internal deps)
+  └─→ custom_models/gemini_provider.py (no internal deps)
+```
+
+### Circular Dependency Analysis
+
+**No circular dependencies detected** - The architecture maintains strict layering:
+- Lower layers (utils) have zero internal dependencies
+- Middle layers (agents, tools) depend only on utils and config
+- Upper layers (handlers) depend on agents and utils
+- Entry point (main) depends on all layers but nothing depends on it
 
 ## External Libraries Analysis
 
-### Core Framework Dependencies
+### Core Dependencies (from pyproject.toml)
 
-**pydantic-ai (>=0.4.2)**
-- **Usage**: Primary AI agent framework for LLM interactions
-- **Components**: `Agent`, `Tool`, `ModelSettings`, `AgentRunResult`
-- **Integration Points**: All agent classes, tool definitions, model configuration
-- **Features Used**: Agent orchestration, tool calling, structured outputs, retry mechanisms
+**AI/ML Framework**
+- `pydantic-ai==1.0.15` - Core AI agent framework
+  - Purpose: Multi-agent orchestration, tool integration, LLM abstraction
+  - Usage: All agent implementations, tool definitions, model providers
+  - Critical dependency: Entire agent system built on this framework
 
-**pydantic (>=2.11.7)**
-- **Usage**: Data validation and configuration management
-- **Components**: `BaseModel`, `Field`, `model_validator`
-- **Integration Points**: All configuration classes, result models, validation logic
-- **Features Used**: Type validation, field descriptions, model serialization
+**Data Validation & Serialization**
+- `pydantic==2.12.0` - Data validation and settings management
+  - Purpose: Configuration models, type safety, validation
+  - Usage: All configuration classes, agent inputs/outputs
+  - Critical dependency: Used throughout entire codebase
 
-### AI/ML Integration
+- `ujson==5.11.0` - Fast JSON parsing
+  - Purpose: High-performance JSON serialization for logging
+  - Usage: Logger module for structured data logging
 
-**OpenAI Integration**
-- **Components**: `OpenAIModel`, `OpenAIProvider`
-- **Configuration**: Environment variables for API key, base URL, model selection
-- **Usage**: Primary LLM provider for both analyzer and documenter agents
+**Template Engine**
+- `jinja2==3.1.6` - Template rendering
+  - Purpose: Prompt template management and rendering
+  - Usage: PromptManager for dynamic prompt generation
 
-**Google Gemini Integration**
-- **Components**: `GeminiModel`, Custom `CustomGeminiGLA` provider
-- **Configuration**: Custom provider with configurable base URL
-- **Usage**: Alternative LLM provider with custom implementation
+**Async Support**
+- `nest-asyncio==1.6.0` - Nested event loop support
+  - Purpose: Enable nested async operations
+  - Usage: Applied globally in main.py for compatibility
 
-### Observability Stack
+**Git Integration**
+- `gitpython==3.1.45` - Git repository operations
+  - Purpose: Repository cloning, branch management, commits
+  - Usage: Cronjob handler, repository version detection
 
-**logfire (>=3.24.2)**
-- **Usage**: OpenTelemetry-based observability and tracing
-- **Integration**: Configured in main.py with Langfuse authentication
-- **Features**: Distributed tracing, performance monitoring, structured logging
+- `python-gitlab==6.2.0` - GitLab API client
+  - Purpose: Project discovery, MR creation, branch operations
+  - Usage: Cronjob handler for automated analysis
 
-**OpenTelemetry**
-- **Components**: `trace` module for span creation and event tracking
-- **Usage**: Agent execution tracking, performance metrics, debugging
-- **Integration**: Embedded in agent execution and tool operations
+**Observability**
+- `logfire==4.12.0` - Observability and logging platform
+  - Purpose: LLM monitoring, distributed tracing, instrumentation
+  - Usage: Main entry point for pydantic-ai and httpx instrumentation
 
-### Git and Repository Management
+- `opentelemetry-instrumentation-httpx==0.58b0` - HTTP request tracing
+  - Purpose: Automatic HTTP request/response tracing
+  - Usage: Integrated with logfire for observability
 
-**GitPython (>=3.1.44)**
-- **Usage**: Git repository operations in cronjob handler
-- **Operations**: Repository cloning, branch creation, commit operations, push operations
-- **Integration**: Automated analysis workflow with GitLab
+**Configuration**
+- `pyyaml>=6.0.2` - YAML parsing
+  - Purpose: Configuration file loading, prompt template storage
+  - Usage: Config module, PromptManager
 
-**python-gitlab (>=6.1.0)**
-- **Usage**: GitLab API integration for project discovery and MR creation
-- **Operations**: Project listing, branch management, merge request creation
-- **Authentication**: OAuth token-based authentication
+- `python-dotenv>=1.1.1` - Environment variable loading
+  - Purpose: .env file support for configuration
+  - Usage: Config module initialization
 
-### Template and Configuration
+### Transitive Dependencies (Key ones from uv.lock)
 
-**Jinja2 (>=3.1.5)**
-- **Usage**: Prompt template rendering in PromptManager
-- **Features**: Template caching, variable substitution, nested template support
-- **Integration**: AI agent prompt generation with dynamic content
+**AI Model Providers**
+- `anthropic==0.69.0` - Claude AI models
+  - Transitive via: pydantic-ai
+  - Purpose: Alternative LLM provider support
 
-**PyYAML (>=6.0)**
-- **Usage**: Configuration file parsing and prompt template loading
-- **Operations**: YAML file reading, nested key traversal, safe loading
-- **Integration**: Configuration system and prompt management
+- `openai` - OpenAI models (GPT-4, etc.)
+  - Transitive via: pydantic-ai
+  - Purpose: Primary LLM provider
 
-**python-dotenv (>=1.0.0)**
-- **Usage**: Environment variable loading from .env files
-- **Integration**: Configuration system initialization
-- **Features**: Automatic .env file discovery and loading
+- `google-genai==1.41.0` - Gemini models
+  - Transitive via: pydantic-ai
+  - Purpose: Google AI model support with custom provider
 
-### Utility Libraries
+- `cohere==5.18.0` - Cohere models
+  - Transitive via: pydantic-ai
+  - Purpose: Additional LLM provider option
 
-**ujson (>=5.10.0)**
-- **Usage**: High-performance JSON serialization for logging
-- **Integration**: Structured logging output formatting
-- **Benefits**: Performance optimization for log data serialization
+**HTTP & Networking**
+- `httpx` - Async HTTP client
+  - Transitive via: pydantic-ai, anthropic, openai
+  - Purpose: LLM API communication, retry logic
+  - Custom usage: retry_client.py with tenacity integration
 
-**nest-asyncio (>=1.6.0)**
-- **Usage**: Nested asyncio event loop support
-- **Integration**: Applied globally in main.py for compatibility
-- **Purpose**: Enables asyncio in environments with existing event loops
+- `aiohttp==3.12.15` - Async HTTP client/server
+  - Transitive via: multiple dependencies
+  - Purpose: Alternative async HTTP implementation
 
-**psutil (>=7.0.0)**
-- **Usage**: System and process utilities
-- **Integration**: Likely used for system monitoring and resource tracking
-- **Features**: Process management, system information
+- `tenacity` - Retry library
+  - Transitive via: pydantic-ai
+  - Purpose: Exponential backoff, retry logic
+  - Custom usage: retry_client.py for HTTP resilience
 
-### Version Constraints Analysis
+**Observability Stack**
+- `opentelemetry-api` - Tracing API
+  - Transitive via: logfire
+  - Purpose: Distributed tracing, span management
+  - Direct usage: agents and tools for span creation
 
-**Python Version**: Strictly requires Python 3.13 (`>=3.13,<3.14`)
-**Dependency Versions**: All dependencies use minimum version constraints with `>=`
-**Stability**: Uses stable, well-maintained packages with recent versions
-**Compatibility**: No conflicting version requirements identified
+- `opentelemetry-instrumentation-httpx==0.58b0` - HTTP instrumentation
+  - Direct dependency
+  - Purpose: Automatic HTTP request tracing
+
+**Data Processing**
+- `jinja2==3.1.6` - Template engine
+  - Direct dependency
+  - Purpose: Prompt template rendering
+
+- `pyyaml>=6.0.2` - YAML parser
+  - Direct dependency
+  - Purpose: Configuration and prompt file parsing
+
+**Authentication & Security**
+- `google-auth==2.40.3` - Google authentication
+  - Transitive via: google-genai
+  - Purpose: Gemini API authentication
+
+**Development Tools**
+- `ipython>=9.6.0` - Interactive Python shell (dev)
+  - Purpose: Development and debugging
+
+- `ruff>=0.14.0` - Python linter and formatter (dev)
+  - Purpose: Code quality and formatting
+
+### Version Pinning Strategy
+
+**Exact Pinning (High Risk)**
+- Most dependencies use exact versions (e.g., `pydantic==2.12.0`)
+- Risk: No automatic security updates or bug fixes
+- Rationale: Ensures reproducible builds and prevents breaking changes
+
+**Range Pinning (Flexible)**
+- `pyyaml>=6.0.2` - Allows minor/patch updates
+- `python-dotenv>=1.1.1` - Allows minor/patch updates
+- Rationale: These are stable libraries with good backward compatibility
+
+**Development Dependencies**
+- `ipython>=9.6.0` - Flexible versioning for dev tools
+- `ruff>=0.14.0` - Allows updates for latest features
 
 ## Service Integrations
 
+### AI Model Provider Integrations
+
+**OpenAI Integration**
+- **Configuration**: `ANALYZER_LLM_MODEL`, `DOCUMENTER_LLM_MODEL`, `*_LLM_BASE_URL`, `*_LLM_API_KEY`
+- **Provider**: `OpenAIProvider` from pydantic-ai
+- **Models Supported**: GPT-4, GPT-3.5-turbo, custom OpenAI-compatible endpoints
+- **Usage Pattern**: 
+  - Model instantiation: `OpenAIModel(model_name, provider=OpenAIProvider(...))`
+  - Custom HTTP client with retry logic via `create_retrying_client()`
+  - Settings: temperature, max_tokens, timeout, parallel_tool_calls
+- **Integration Points**: 
+  - `analyzer.py`: 5 concurrent agents for code analysis
+  - `documenter.py`: Single agent for README generation
+
+**Gemini Integration**
+- **Configuration**: Model name contains "gemini", custom base URL support
+- **Provider**: `CustomGeminiGLA` (custom implementation extending `GoogleGLAProvider`)
+- **Custom Features**: 
+  - Overrides base_url property for custom endpoints
+  - Maintains compatibility with pydantic-ai framework
+- **Usage Pattern**: `GeminiModel(model_name, provider=CustomGeminiGLA(...))`
+- **Integration Points**: Same as OpenAI (analyzer and documenter agents)
+
+**Anthropic/Claude Integration**
+- **Support**: Via pydantic-ai framework (transitive dependency)
+- **Configuration**: Through environment variables
+- **Usage**: Available but not explicitly configured in current codebase
+
+**Model Settings Configuration**
+- **Analyzer Settings**:
+  - Retries: `ANALYZER_AGENT_RETRIES` (default: 2)
+  - Timeout: `ANALYZER_LLM_TIMEOUT` (default: 180s)
+  - Max tokens: `ANALYZER_LLM_MAX_TOKENS` (default: 8192)
+  - Temperature: `ANALYZER_LLM_TEMPERATURE` (default: 0.0)
+  - Parallel tool calls: `ANALYZER_PARALLEL_TOOL_CALLS` (default: true)
+
+- **Documenter Settings**:
+  - Retries: `DOCUMENTER_AGENT_RETRIES` (default: 2)
+  - Timeout: `DOCUMENTER_LLM_TIMEOUT` (default: 180s)
+  - Max tokens: `DOCUMENTER_LLM_MAX_TOKENS` (default: 8192)
+  - Temperature: `DOCUMENTER_LLM_TEMPERATURE` (default: 0.0)
+  - Parallel tool calls: `DOCUMENTER_PARALLEL_TOOL_CALLS` (default: true)
+
 ### GitLab Integration
 
-**Authentication**: OAuth token-based authentication via `GITLAB_OAUTH_TOKEN`
-**API Endpoints**: 
-- Project listing and filtering
-- Branch creation and management
-- Merge request creation and management
-- Repository access and cloning
+**API Client Configuration**
+- **Library**: `python-gitlab==6.2.0`
+- **Authentication**: OAuth token via `GITLAB_OAUTH_TOKEN`
+- **Base URL**: `GITLAB_API_URL` (default: "https://git.divar.cloud")
+- **User Configuration**:
+  - Name: `GITLAB_USER_NAME` (default: "AI Analyzer")
+  - Username: `GITLAB_USER_USERNAME` (default: "agent_doc")
+  - Email: `GITLAB_USER_EMAIL`
 
-**Integration Points**:
-- `JobAnalyzeHandler` for automated project analysis
-- Project filtering based on activity and criteria
-- Automated branch creation with timestamp-based naming
-- Merge request creation with structured titles and descriptions
+**Integration Features**
+- **Project Discovery**:
+  - Group-based project listing with subgroup support
+  - Iterator-based pagination for large groups
+  - Project filtering by activity, commit history, archived status
 
-**Configuration**:
-- `GITLAB_API_URL`: GitLab instance URL (default: https://git.divar.cloud)
-- `GITLAB_USER_NAME`: Display name for automated commits
-- `GITLAB_USER_USERNAME`: Username for MR authorship
-- `GITLAB_USER_EMAIL`: Email for Git commits
+- **Repository Operations**:
+  - HTTP-based cloning with authentication
+  - Branch creation with date-based naming
+  - Git configuration (user.name, user.email)
 
-### LLM Provider Integrations
+- **Merge Request Automation**:
+  - Automated MR creation with structured titles
+  - Description includes analyzer version and metadata
+  - Skip CI flag support (`[skip ci]`)
+  - Duplicate MR prevention
 
-**OpenAI Integration**:
-- **Analyzer Configuration**: `ANALYZER_LLM_MODEL`, `ANALYZER_LLM_BASE_URL`, `ANALYZER_LLM_API_KEY`
-- **Documenter Configuration**: `DOCUMENTER_LLM_MODEL`, `DOCUMENTER_LLM_BASE_URL`, `DOCUMENTER_LLM_API_KEY`
-- **Features**: Parallel tool calls, temperature control, token limits, timeout configuration
+- **Branch Management**:
+  - Branch existence checking
+  - Default branch detection
+  - Commit message validation
 
-**Gemini Integration**:
-- **Custom Provider**: `CustomGeminiGLA` with configurable base URL
-- **Usage**: Alternative to OpenAI for document generation
-- **Configuration**: Custom provider implementation extending `GoogleGLAProvider`
+**Cronjob Integration Pattern**
+- **Project Filtering Logic**:
+  - Exclude archived projects
+  - Exclude specific subgroups (configurable list)
+  - Exclude specific project IDs (configurable list)
+  - Check last commit date (configurable threshold)
+  - Prevent duplicate analysis (check for existing MRs)
 
-### Observability Integrations
+- **Execution Flow**:
+  1. Discover projects in GitLab group
+  2. Filter applicable projects
+  3. Clone repository to working directory
+  4. Run analysis handler
+  5. Create branch and commit changes
+  6. Create merge request
+  7. Cleanup working directory
 
-**Langfuse Integration**:
-- **Authentication**: Basic auth with `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`
-- **Configuration**: OTLP headers for authentication
-- **Features**: Distributed tracing, performance monitoring, debugging
+### Observability Service Integrations
 
-**OpenTelemetry Integration**:
-- **Service Name**: "code-documenter"
-- **Environment**: Configurable via `ENVIRONMENT` variable
-- **Features**: Span creation, event tracking, attribute setting
+**Logfire Integration**
+- **Configuration**: 
+  - Service name: "ai-doc-gen"
+  - Environment: `ENVIRONMENT` (default: "development")
+  - Send to Logfire: false (local-only mode)
+- **Instrumentation**:
+  - `logfire.instrument_pydantic_ai()` - Automatic pydantic-ai tracing
+  - `logfire.instrument_httpx(capture_all=True)` - HTTP request/response capture
+- **Usage**: Configured in `main.py` via `configure_langfuse()`
+
+**Langfuse Integration (Optional)**
+- **Configuration**:
+  - Enable flag: `ENABLE_LANGFUSE` (default: false)
+  - Public key: `LANGFUSE_PUBLIC_KEY`
+  - Secret key: `LANGFUSE_SECRET_KEY`
+- **Authentication**: Basic auth via OTLP headers
+- **Purpose**: LLM observability and analytics
+- **Integration**: Via OpenTelemetry OTLP exporter
+
+**OpenTelemetry Tracing**
+- **Direct Usage**:
+  - `trace.get_tracer()` - Create named tracers for components
+  - `start_as_current_span()` - Create spans for operations
+  - `span.set_attributes()` - Add metadata to spans
+  - `span.add_event()` - Log events within spans
+- **Traced Components**:
+  - Analyzer handler: Repository path, version, exclusion flags
+  - Documenter handler: Repository path, version
+  - Individual agents: Agent name, execution events
+  - Tools: Input/output attributes
+
+### HTTP Retry Integration
+
+**Retry Client Configuration**
+- **Library**: `httpx` with `tenacity` for retry logic
+- **Implementation**: `create_retrying_client()` in `retry_client.py`
+- **Retry Strategy**:
+  - Max attempts: `HTTP_RETRY_MAX_ATTEMPTS` (default: 5)
+  - Multiplier: `HTTP_RETRY_MULTIPLIER` (default: 1)
+  - Max wait per attempt: `HTTP_RETRY_MAX_WAIT_PER_ATTEMPT` (default: 60s)
+  - Max total wait: `HTTP_RETRY_MAX_TOTAL_WAIT` (default: 300s)
+
+**Retry Conditions**
+- **Status Codes**: 429 (rate limit), 502, 503, 504 (server errors)
+- **Exceptions**: HTTPStatusError, ConnectionError
+- **Wait Strategy**:
+  - Primary: Respect "Retry-After" header from server
+  - Fallback: Exponential backoff (1s, 2s, 4s, 8s, ...)
+  - Maximum: 60s between attempts, 300s total
+
+**Integration Points**
+- Used by all AI model providers (OpenAI, Gemini, Anthropic)
+- Configured in agent initialization
+- Shared across analyzer and documenter agents
 
 ## Dependency Injection Patterns
 
-### Configuration Injection
+### Configuration-Driven Injection
 
-**Pattern**: Constructor-based dependency injection with Pydantic models
-**Implementation**: 
-- Configuration objects passed to handler constructors
-- Handlers pass configuration to agent constructors
-- Agents receive typed configuration objects
+The project uses **configuration-based dependency injection** without a traditional DI container:
 
-**Example Flow**:
+**Multi-Source Configuration Pattern**
 ```python
-# Configuration loading and injection
-cfg: AnalyzeHandlerConfig = load_config(args, AnalyzeHandlerConfig, "analyzer")
-handler = AnalyzeHandler(cfg)  # Constructor injection
-agent = AnalyzerAgent(cfg)     # Configuration propagation
+# Precedence: defaults → file config → CLI args
+def load_config(args, handler_config: Type[T], file_key: str = "") -> T:
+    file_config = load_config_from_file(args, file_key)
+    cli_config = load_config_as_dict(args, handler_config)
+    config = merge_dicts(file_config, cli_config)
+    return handler_config(**config)
 ```
 
-### Service Injection
+**Handler Factory Pattern**
+- Handlers instantiated with configuration objects
+- Configuration contains all dependencies (paths, settings, flags)
+- Example: `AnalyzeHandler(config: AnalyzeHandlerConfig)`
 
-**GitLab Client Injection**:
-- `JobAnalyzeHandler` receives `Gitlab` client instance via constructor
-- Client configured externally with authentication and URL
-- Enables testing with mock clients
-
-**Model Provider Injection**:
-- Agents create model instances based on configuration
-- Provider selection through configuration-driven factory pattern
-- Supports multiple LLM providers (OpenAI, Gemini)
+**Agent Configuration Injection**
+- Agents receive configuration objects in constructor
+- Configuration includes model settings, retry policies, tool configs
+- Example: `AnalyzerAgent(cfg: AnalyzerAgentConfig)`
 
 ### Tool Registration Pattern
 
-**Dynamic Tool Registration**:
-- Tools registered with agents during initialization
-- Tool instances created and passed to agent constructors
-- Enables extensible tool system
-
-**Example**:
+**Dynamic Tool Loading**
+- Tools registered with pydantic-ai agents during initialization
+- Configuration-based retry policies injected
+- Example:
 ```python
-# Tool registration in agent initialization
-tools = [FileReadTool().get_tool(), ListFilesTool().get_tool()]
-agent = Agent(tools=tools, ...)
+Tool(
+    self._run,
+    name="Read-File",
+    takes_ctx=False,
+    max_retries=config.TOOL_FILE_READER_MAX_RETRIES
+)
 ```
 
-### Prompt Template Injection
+**Tool Configuration**
+- File reader max retries: `TOOL_FILE_READER_MAX_RETRIES` (default: 2)
+- List files max retries: `TOOL_LIST_FILES_MAX_RETRIES` (default: 2)
+- Retry logic handled by pydantic-ai framework
 
-**Template Manager Pattern**:
-- `PromptManager` instances created with file paths
-- Templates loaded and cached during initialization
-- Agents receive configured prompt managers
+### Model Provider Injection
 
-**Configuration-Driven Templates**:
-- Template selection based on agent type
-- Dynamic prompt rendering with configuration variables
-- Centralized template management
+**Provider Selection Pattern**
+```python
+if "gemini" in model_name:
+    model = GeminiModel(
+        model_name=model_name,
+        provider=CustomGeminiGLA(
+            api_key=api_key,
+            base_url=base_url,
+            http_client=retrying_http_client,
+        ),
+    )
+else:
+    model = OpenAIModel(
+        model_name=model_name,
+        provider=OpenAIProvider(
+            base_url=base_url,
+            api_key=api_key,
+            http_client=retrying_http_client,
+        ),
+    )
+```
+
+**HTTP Client Injection**
+- Retry client created once and injected into providers
+- Shared configuration across all model providers
+- Ensures consistent retry behavior
+
+### Logging Injection
+
+**Singleton Logger Pattern**
+- Logger initialized once at application startup
+- Class-level state maintained across application
+- No explicit injection needed (global access via `Logger` class)
+- Configuration: log directory, file level, console level
+
+### Prompt Manager Injection
+
+**File-Based Template Loading**
+- PromptManager instantiated with YAML file path
+- Templates loaded and cached at initialization
+- Used by agents for dynamic prompt generation
+- Example: `PromptManager(file_path=Path(__file__).parent / "prompts" / "analyzer.yaml")`
 
 ## Module Coupling Assessment
 
-### Low Coupling Components
+### Low Coupling Areas ✅
 
-**Tool System**: 
-- **Coupling Level**: Very Low
-- **Dependencies**: Only external libraries (pydantic-ai, opentelemetry)
-- **Interface**: Clean tool interface with minimal dependencies
-- **Testability**: Highly testable in isolation
+**Utility Modules (Excellent Isolation)**
+- `utils/logger.py`: Zero internal dependencies, pure logging utility
+- `utils/dict.py`: Pure functions for dictionary operations
+- `utils/repo.py`: Single external dependency (GitPython), no internal deps
+- `utils/retry_client.py`: Self-contained HTTP retry logic
+- `utils/prompt_manager.py`: Isolated template management
 
-**Utility Modules**:
-- **Coupling Level**: Low
-- **Dependencies**: Minimal external dependencies
-- **Reusability**: High reusability across different contexts
-- **Single Responsibility**: Each utility has focused responsibility
+**Benefits**:
+- Highly testable in isolation
+- Easy to replace or modify
+- No ripple effects from changes
+- Clear single responsibility
 
-### Medium Coupling Components
+**Tool Layer (Good Isolation)**
+- Clear interfaces through pydantic-ai Tool class
+- Minimal dependencies (config, logging only)
+- Easily testable and replaceable
+- Well-defined input/output contracts
 
-**Agent System**:
-- **Coupling Level**: Medium
-- **Dependencies**: Tools, utilities, configuration, external AI providers
-- **Cohesion**: High functional cohesion within each agent
-- **Extensibility**: Good extensibility through tool system
+**Benefits**:
+- Tools can be added/removed without affecting agents
+- Easy to mock for testing
+- Clear separation of concerns
 
-**Configuration System**:
-- **Coupling Level**: Medium
-- **Dependencies**: Multiple utility functions and external libraries
-- **Centralization**: Centralized configuration management
-- **Flexibility**: Supports multiple configuration sources
+### Medium Coupling Areas ⚠️
 
-### Higher Coupling Components
+**Handler Layer (Moderate Coupling)**
+- Handlers depend on specific agent implementations
+- Configuration coupling through shared config classes
+- Direct instantiation of agents (no interface abstraction)
 
-**Handler Layer**:
-- **Coupling Level**: Medium-High
-- **Dependencies**: Agents, configuration, external services
-- **Orchestration**: Responsible for workflow orchestration
-- **Business Logic**: Contains application-specific business logic
+**Issues**:
+- Changing agent interfaces requires handler updates
+- Testing requires mocking concrete agent classes
+- Limited flexibility for agent substitution
 
-**Main Entry Point**:
-- **Coupling Level**: High (by design)
-- **Dependencies**: All major system components
-- **Role**: Application orchestrator and dependency coordinator
-- **Justification**: Acceptable high coupling for entry point
+**Recommendations**:
+- Introduce agent interfaces/protocols
+- Use factory pattern for agent creation
+- Consider dependency injection for agents
 
-**Cronjob Handler**:
-- **Coupling Level**: High
-- **Dependencies**: GitLab API, Git operations, analysis handlers, configuration
-- **Complexity**: Complex integration logic
-- **External Dependencies**: Heavy reliance on external services
+**Agent Layer (Moderate Coupling)**
+- Agents tightly coupled to specific tool implementations
+- Direct dependency on configuration module
+- Model provider coupling through pydantic-ai
 
-### Coupling Improvement Opportunities
+**Issues**:
+- Tool changes may require agent modifications
+- Configuration changes ripple through agents
+- Limited flexibility for tool substitution
 
-**GitLab Integration Abstraction**:
-- Current: Direct GitLab client usage in cronjob handler
-- Improvement: Abstract repository interface for better testability
+**Recommendations**:
+- Define tool interfaces separate from implementations
+- Use dependency injection for tools
+- Consider plugin architecture for extensibility
 
-**Configuration Coupling**:
-- Current: Global configuration variables in config module
-- Improvement: Dependency injection of configuration objects
+### High Coupling Areas ❌
 
-**Agent-Tool Coupling**:
-- Current: Agents directly instantiate tools
-- Improvement: Tool factory or registry pattern
+**Main Entry Point (High Coupling)**
+- Imports all handler types directly
+- Tightly coupled to argument parsing structure
+- Configuration loading logic embedded
+- Direct instantiation of handlers
+
+**Issues**:
+- Adding new handlers requires main.py changes
+- Testing requires complex setup
+- Limited extensibility
+- Violates Open/Closed Principle
+
+**Recommendations**:
+- Implement handler registry pattern
+- Use plugin discovery mechanism
+- Separate CLI parsing from handler execution
+- Introduce command pattern with handler factory
+
+**Configuration Module (High Coupling)**
+- Global environment variable dependencies
+- Mixed concerns (loading, validation, merging)
+- Used throughout entire application
+- Single point of failure
+
+**Issues**:
+- Changes affect entire application
+- Difficult to test in isolation
+- Global state management
+- Tight coupling to environment
+
+**Recommendations**:
+- Separate configuration loading from validation
+- Introduce configuration interfaces
+- Use dependency injection for configuration
+- Add configuration versioning
+
+### Coupling Metrics
+
+**Afferent Coupling (Ca) - Incoming Dependencies**
+- `utils/*`: High (used by all layers) - Good for utilities
+- `config.py`: High (used by all layers) - Concerning
+- `agents/*`: Medium (used by handlers)
+- `handlers/*`: Low (used only by main)
+
+**Efferent Coupling (Ce) - Outgoing Dependencies**
+- `main.py`: High (depends on all layers) - Expected for entry point
+- `handlers/*`: Medium (depends on agents, utils)
+- `agents/*`: Medium (depends on tools, utils)
+- `utils/*`: Low (minimal dependencies) - Excellent
+
+**Instability (I = Ce / (Ca + Ce))**
+- `utils/*`: ~0.1 (very stable) - Excellent
+- `agents/*`: ~0.4 (moderately stable) - Good
+- `handlers/*`: ~0.6 (moderately unstable) - Acceptable
+- `main.py`: ~0.9 (very unstable) - Expected for entry point
 
 ## Dependency Graph
 
-### High-Level Dependency Flow
+```mermaid
+graph TB
+    subgraph "Entry Point Layer"
+        MAIN[main.py]
+    end
 
-```
-CLI Entry (main.py)
-    ├── Configuration System (config.py)
-    │   └── Dictionary Utils (utils/dict.py)
-    ├── Handler Layer
-    │   ├── Base Handler (handlers/base_handler.py)
-    │   ├── Analyze Handler (handlers/analyze.py)
-    │   │   └── Analyzer Agent (agents/analyzer.py)
-    │   ├── README Handler (handlers/readme.py)
-    │   │   └── Documenter Agent (agents/documenter.py)
-    │   └── Cronjob Handler (handlers/cronjob.py)
-    │       ├── GitLab Integration
-    │       └── Git Operations
-    └── Utility Layer
-        ├── Logger (utils/logger.py)
-        ├── Prompt Manager (utils/prompt_manager.py)
-        └── Repository Utils (utils/repo.py)
+    subgraph "Configuration Layer"
+        CONFIG[config.py]
+        DICT[utils/dict.py]
+    end
 
-Agent System
-    ├── Analyzer Agent
-    │   ├── Structure Analyzer
-    │   ├── Dependency Analyzer
-    │   ├── Data Flow Analyzer
-    │   ├── Request Flow Analyzer
-    │   └── API Analyzer
-    ├── Documenter Agent
-    └── Tool System
-        ├── File Read Tool
-        └── List Files Tool
+    subgraph "Handler Layer"
+        BASE[handlers/base_handler.py]
+        ANALYZE[handlers/analyze.py]
+        README[handlers/readme.py]
+        CRONJOB[handlers/cronjob.py]
+    end
 
-External Dependencies
-    ├── AI Providers (OpenAI, Gemini)
-    ├── GitLab API
-    ├── Observability (Logfire, OpenTelemetry)
-    └── Utility Libraries (Jinja2, PyYAML, etc.)
+    subgraph "Agent Layer"
+        ANALYZER[agents/analyzer.py]
+        DOCUMENTER[agents/documenter.py]
+    end
+
+    subgraph "Tool Layer"
+        FILE_TOOL[tools/file_reader.py]
+        DIR_TOOL[tools/list_files.py]
+    end
+
+    subgraph "Utility Layer"
+        LOGGER[utils/logger.py]
+        PROMPT[utils/prompt_manager.py]
+        RETRY[utils/retry_client.py]
+        REPO[utils/repo.py]
+        GEMINI[utils/custom_models/gemini_provider.py]
+    end
+
+    subgraph "External Dependencies"
+        PYDANTIC_AI[pydantic-ai]
+        OPENAI[OpenAI API]
+        GEMINI_API[Gemini API]
+        GITLAB[GitLab API]
+        OTEL[OpenTelemetry]
+        LOGFIRE[Logfire]
+    end
+
+    %% Entry Point Dependencies
+    MAIN --> CONFIG
+    MAIN --> ANALYZE
+    MAIN --> README
+    MAIN --> CRONJOB
+    MAIN --> LOGGER
+    MAIN --> LOGFIRE
+    MAIN --> GITLAB
+
+    %% Configuration Dependencies
+    CONFIG --> DICT
+
+    %% Handler Dependencies
+    ANALYZE --> BASE
+    ANALYZE --> ANALYZER
+    ANALYZE --> REPO
+    ANALYZE --> LOGGER
+    ANALYZE --> OTEL
+
+    README --> BASE
+    README --> DOCUMENTER
+    README --> REPO
+    README --> LOGGER
+    README --> OTEL
+
+    CRONJOB --> BASE
+    CRONJOB --> ANALYZE
+    CRONJOB --> CONFIG
+    CRONJOB --> LOGGER
+    CRONJOB --> GITLAB
+
+    %% Agent Dependencies
+    ANALYZER --> CONFIG
+    ANALYZER --> FILE_TOOL
+    ANALYZER --> DIR_TOOL
+    ANALYZER --> LOGGER
+    ANALYZER --> PROMPT
+    ANALYZER --> RETRY
+    ANALYZER --> PYDANTIC_AI
+    ANALYZER --> OTEL
+
+    DOCUMENTER --> CONFIG
+    DOCUMENTER --> FILE_TOOL
+    DOCUMENTER --> LOGGER
+    DOCUMENTER --> PROMPT
+    DOCUMENTER --> RETRY
+    DOCUMENTER --> PYDANTIC_AI
+    DOCUMENTER --> OTEL
+    DOCUMENTER --> GEMINI
+
+    %% Tool Dependencies
+    FILE_TOOL --> CONFIG
+    FILE_TOOL --> LOGGER
+    FILE_TOOL --> PYDANTIC_AI
+    FILE_TOOL --> OTEL
+
+    DIR_TOOL --> CONFIG
+    DIR_TOOL --> LOGGER
+    DIR_TOOL --> PYDANTIC_AI
+    DIR_TOOL --> OTEL
+
+    %% External API Dependencies
+    PYDANTIC_AI --> OPENAI
+    PYDANTIC_AI --> GEMINI_API
+    GEMINI --> GEMINI_API
+    RETRY --> PYDANTIC_AI
+
+    style MAIN fill:#ff6b6b
+    style CONFIG fill:#ffd93d
+    style ANALYZER fill:#6bcf7f
+    style DOCUMENTER fill:#6bcf7f
+    style LOGGER fill:#4ecdc4
+    style PYDANTIC_AI fill:#95e1d3
+    style GITLAB fill:#95e1d3
 ```
 
 ### Critical Dependency Paths
 
-**Analysis Execution Path**:
-`main.py` → `AnalyzeHandler` → `AnalyzerAgent` → `Tools` → `File System` → `LLM Provider`
+**Path 1: Analysis Execution**
+```
+main.py → analyze.py → analyzer.py → tools → pydantic-ai → OpenAI/Gemini
+```
 
-**Documentation Generation Path**:
-`main.py` → `ReadmeHandler` → `DocumenterAgent` → `Tools` → `Analysis Files` → `LLM Provider`
+**Path 2: Documentation Generation**
+```
+main.py → readme.py → documenter.py → file_tool → pydantic-ai → OpenAI/Gemini
+```
 
-**Cronjob Execution Path**:
-`main.py` → `JobAnalyzeHandler` → `GitLab API` → `Git Operations` → `AnalyzeHandler` → `MR Creation`
+**Path 3: Automated Cronjob**
+```
+main.py → cronjob.py → GitLab API → analyze.py → analyzer.py → pydantic-ai
+```
 
-**Configuration Loading Path**:
-`main.py` → `config.py` → `YAML Files` → `Environment Variables` → `Pydantic Validation`
+**Path 4: Configuration Loading**
+```
+main.py → config.py → utils/dict → YAML files → Pydantic validation
+```
+
+**Path 5: Observability**
+```
+All components → OpenTelemetry → Logfire → (Optional) Langfuse
+```
 
 ## Potential Dependency Issues
 
-### Circular Dependencies
+### Version Lock Risks ⚠️
 
-**Status**: No circular dependencies detected in the current codebase
-**Analysis**: Clean hierarchical dependency structure with clear separation of concerns
-**Monitoring**: Regular dependency analysis recommended as codebase grows
+**Exact Version Pinning**
+- **Issue**: Most dependencies use exact versions (e.g., `pydantic==2.12.0`)
+- **Risk**: Security updates and bug fixes not automatically received
+- **Impact**: Potential security vulnerabilities, missing performance improvements
+- **Affected Dependencies**: pydantic, jinja2, ujson, pydantic-ai, nest-asyncio, python-gitlab, gitpython, logfire
+- **Recommendation**: 
+  - Use compatible version ranges for stable libraries (e.g., `pydantic>=2.12.0,<3.0.0`)
+  - Implement automated dependency update checks
+  - Regular security audits with tools like `pip-audit`
 
-### Version Compatibility Risks
+**pydantic-ai Dependency**
+- **Issue**: Version `1.0.15` is relatively new (1.x series)
+- **Risk**: Breaking changes in minor/patch updates
+- **Impact**: High - entire agent system built on this framework
+- **Recommendation**: 
+  - Pin to minor version range (e.g., `pydantic-ai>=1.0.15,<1.1.0`)
+  - Monitor release notes closely
+  - Maintain comprehensive integration tests
+  - Consider version compatibility matrix
 
-**Python Version Lock**: 
-- **Issue**: Strict Python 3.13 requirement may limit deployment flexibility
-- **Risk**: Compatibility issues with different Python environments
-- **Mitigation**: Consider broader Python version support (3.11+)
+### Circular Dependency Risks 🔄
 
-**Dependency Version Constraints**:
-- **Issue**: Minimum version constraints without upper bounds
-- **Risk**: Future breaking changes in dependencies
-- **Mitigation**: Consider adding upper version bounds for critical dependencies
+**Config-Utils Potential Circular Reference**
+- **Current State**: `config.py` imports `utils.dict.merge_dicts`
+- **Risk**: Utils modules may need config values in future
+- **Impact**: Import errors, initialization failures
+- **Mitigation**: Currently avoided through careful design
+- **Recommendation**:
+  - Keep utils completely independent of config
+  - Use dependency injection for configuration needs
+  - Document the no-config-in-utils rule
 
-### External Service Dependencies
+**No Actual Circular Dependencies Detected**
+- Clean layered architecture prevents circular imports
+- Strict dependency flow: main → handlers → agents → tools → utils
+- Utils layer has zero internal dependencies
 
-**GitLab API Dependency**:
-- **Issue**: Heavy reliance on GitLab API availability and compatibility
-- **Risk**: Service outages or API changes breaking cronjob functionality
-- **Mitigation**: Implement retry mechanisms and graceful degradation
+### Heavy Dependency Chain ⚙️
 
-**LLM Provider Dependencies**:
-- **Issue**: Critical dependency on external AI services
-- **Risk**: API rate limits, service outages, or cost implications
-- **Mitigation**: Implement fallback providers and rate limiting
+**AI Provider Dependencies**
+- **Issue**: Multiple AI providers loaded even if unused (OpenAI, Anthropic, Google, Cohere)
+- **Impact**: 
+  - Large dependency footprint (~50+ transitive dependencies)
+  - Increased installation time and disk space
+  - Potential security surface area
+- **Affected Packages**: anthropic, openai, google-genai, cohere (all via pydantic-ai)
+- **Recommendation**:
+  - Implement lazy loading for providers
+  - Use optional dependencies: `pip install ai-doc-gen[openai]`
+  - Consider provider-specific extras in pyproject.toml
+  - Example:
+    ```toml
+    [project.optional-dependencies]
+    openai = ["openai>=1.0.0"]
+    anthropic = ["anthropic>=0.69.0"]
+    gemini = ["google-genai>=1.41.0"]
+    ```
 
-### Configuration Complexity
+**Observability Stack**
+- **Issue**: Heavy observability dependencies (OpenTelemetry, Logfire)
+- **Impact**: Required even for simple local usage
+- **Recommendation**:
+  - Make observability optional
+  - Provide lightweight mode without tracing
+  - Use conditional imports with graceful degradation
 
-**Environment Variable Sprawl**:
-- **Issue**: Large number of required environment variables
-- **Risk**: Configuration errors and deployment complexity
-- **Mitigation**: Implement configuration validation and default value strategies
+### Single Points of Failure 💥
 
-**Multi-Source Configuration**:
-- **Issue**: Complex configuration merging logic
-- **Risk**: Unexpected configuration precedence issues
-- **Mitigation**: Improve configuration documentation and validation
-
-### Performance Dependencies
-
-**Synchronous Operations**:
-- **Issue**: Some file operations and external API calls may block
-- **Risk**: Performance bottlenecks in concurrent scenarios
-- **Mitigation**: Audit for blocking operations and implement async alternatives
-
-**Memory Usage**:
-- **Issue**: Large file processing and LLM interactions may consume significant memory
-- **Risk**: Memory exhaustion in resource-constrained environments
-- **Mitigation**: Implement streaming and chunking strategies
-
-### Testing Dependencies
-
-**External Service Mocking**:
-- **Issue**: Heavy reliance on external services complicates testing
-- **Risk**: Brittle tests and difficulty in CI/CD environments
-- **Mitigation**: Implement comprehensive mocking strategies and integration test isolation
-
-**Configuration Testing**:
-- **Issue**: Complex configuration system requires extensive test coverage
-- **Risk**: Configuration-related bugs in production
-- **Mitigation**: Implement configuration validation tests and example configurations
+**Configuration System**
+- **Issue**: All components depend on centralized config module
+- **Impact**: Failure in config loading affects entire application
+- **Failure Scenarios**:
+  - Missing environment variables
+  -
