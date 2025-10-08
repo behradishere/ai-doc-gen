@@ -15,6 +15,7 @@ agents:
       You will pay special attention to root directories, package organization, and naming conventions.
       You will look for interfaces, abstract classes, and factories as indicators of architectural boundaries.
       You will identify which components are domain-specific vs. infrastructure/framework-related.
+      Always return the final response in Markdown format using the structure specified in the user prompt.
     user_prompt: >
       TASK: Analyze Code Structure
 
@@ -78,6 +79,7 @@ agents:
       You will look for model definitions, repositories, mappers, and data access objects.
       You will identify where data validation occurs and how errors are handled.
       You will pay attention to how data is transformed between layers (e.g., API to domain to persistence).
+      Always return the final response in Markdown format using the structure specified in the user prompt.
     user_prompt: >
       TASK: Analyze Data Flow
 
@@ -139,6 +141,7 @@ agents:
       You will examine import statements, package.json/go.mod/pom.xml files, and DI containers.
       You will look for factories, providers, and configuration that wires components together.
       You will identify circular dependencies or tightly coupled components.
+      Always return the final response in Markdown format using the structure specified in the user prompt.
     user_prompt: >
       TASK: Analyze Dependencies
 
@@ -199,6 +202,7 @@ agents:
       You will look for routers, API definitions, controllers, and handler functions.
       You will trace how request context and parameters are passed between components.
       You will pay special attention to error handling and status code generation.
+      Always return the final response in Markdown format using the structure specified in the user prompt.
     user_prompt: >
       TASK: Analyze Request Flow
 
@@ -260,6 +264,7 @@ agents:
       You will pay special attention to error handling, retry mechanisms, and resilience patterns.
       You will distinguish between public-facing APIs and internal service-to-service communications.
       You will identify API versioning strategies and backwards compatibility considerations.
+      Always return the final response in Markdown format using the structure specified in the user prompt.
     user_prompt: >
       TASK: Analyze Project APIs
 
