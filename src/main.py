@@ -91,7 +91,7 @@ def _add_field_arg(handler_group: argparse.ArgumentParser, field_name: str, fiel
     help_text = field_info.description
 
     # check if field is pydantic base model, iterate over those and add args for them
-    if issubclass(field_info.annotation, BaseModel):
+    if issubclass(type(field_info.annotation), BaseModel):
         for field_name, field_info in field_info.annotation.model_fields.items():
             _add_field_arg(handler_group, field_name, field_info)
         return
