@@ -46,89 +46,71 @@ class AnalyzerAgent:
 
     async def run(self):
         Logger.info("Starting analyzer agent")
-        tasks = []
+
         analysis_files = []
+        agent_tasks = {}
 
         if not self._config.exclude_code_structure:
-            analysis_files.append(
-                self._config.repo_path / ".ai" / "docs" / "structure_analysis.md",
-            )
-            tasks.append(
-                self._run_agent(
-                    agent=self._structure_analyzer_agent,
-                    user_prompt=self._render_prompt("agents.structure_analyzer.user_prompt"),
-                    file_path=self._config.repo_path / ".ai" / "docs" / "structure_analysis.md",
-                )
+            agent = self._structure_analyzer_agent
+            analysis_files.append(self._config.repo_path / ".ai" / "docs" / "structure_analysis.md")
+            agent_tasks[agent.name] = self._run_agent(
+                agent=agent,
+                user_prompt=self._render_prompt("agents.structure_analyzer.user_prompt"),
+                file_path=self._config.repo_path / ".ai" / "docs" / "structure_analysis.md",
             )
 
         if not self._config.exclude_dependencies:
-            analysis_files.append(
-                self._config.repo_path / ".ai" / "docs" / "dependency_analysis.md",
-            )
-            tasks.append(
-                self._run_agent(
-                    agent=self._dependency_analyzer_agent,
-                    user_prompt=self._render_prompt("agents.dependency_analyzer.user_prompt"),
-                    file_path=self._config.repo_path / ".ai" / "docs" / "dependency_analysis.md",
-                )
+            agent = self._dependency_analyzer_agent
+            analysis_files.append(self._config.repo_path / ".ai" / "docs" / "dependency_analysis.md")
+            agent_tasks[agent.name] = self._run_agent(
+                agent=agent,
+                user_prompt=self._render_prompt("agents.dependency_analyzer.user_prompt"),
+                file_path=self._config.repo_path / ".ai" / "docs" / "dependency_analysis.md",
             )
 
         if not self._config.exclude_data_flow:
-            analysis_files.append(
-                self._config.repo_path / ".ai" / "docs" / "data_flow_analysis.md",
-            )
-            tasks.append(
-                self._run_agent(
-                    agent=self._data_flow_analyzer_agent,
-                    user_prompt=self._render_prompt("agents.data_flow_analyzer.user_prompt"),
-                    file_path=self._config.repo_path / ".ai" / "docs" / "data_flow_analysis.md",
-                )
+            agent = self._data_flow_analyzer_agent
+            analysis_files.append(self._config.repo_path / ".ai" / "docs" / "data_flow_analysis.md")
+            agent_tasks[agent.name] = self._run_agent(
+                agent=agent,
+                user_prompt=self._render_prompt("agents.data_flow_analyzer.user_prompt"),
+                file_path=self._config.repo_path / ".ai" / "docs" / "data_flow_analysis.md",
             )
 
         if not self._config.exclude_request_flow:
-            analysis_files.append(
-                self._config.repo_path / ".ai" / "docs" / "request_flow_analysis.md",
-            )
-            tasks.append(
-                self._run_agent(
-                    agent=self._request_flow_analyzer_agent,
-                    user_prompt=self._render_prompt("agents.request_flow_analyzer.user_prompt"),
-                    file_path=self._config.repo_path / ".ai" / "docs" / "request_flow_analysis.md",
-                )
+            agent = self._request_flow_analyzer_agent
+            analysis_files.append(self._config.repo_path / ".ai" / "docs" / "request_flow_analysis.md")
+            agent_tasks[agent.name] = self._run_agent(
+                agent=agent,
+                user_prompt=self._render_prompt("agents.request_flow_analyzer.user_prompt"),
+                file_path=self._config.repo_path / ".ai" / "docs" / "request_flow_analysis.md",
             )
 
         if not self._config.exclude_api_analysis:
-            analysis_files.append(
-                self._config.repo_path / ".ai" / "docs" / "api_analysis.md",
-            )
-            tasks.append(
-                self._run_agent(
-                    agent=self._api_analyzer_agent,
-                    user_prompt=self._render_prompt("agents.api_analyzer.user_prompt"),
-                    file_path=self._config.repo_path / ".ai" / "docs" / "api_analysis.md",
-                )
+            agent = self._api_analyzer_agent
+            analysis_files.append(self._config.repo_path / ".ai" / "docs" / "api_analysis.md")
+            agent_tasks[agent.name] = self._run_agent(
+                agent=agent,
+                user_prompt=self._render_prompt("agents.api_analyzer.user_prompt"),
+                file_path=self._config.repo_path / ".ai" / "docs" / "api_analysis.md",
             )
 
         Logger.debug("Running all agents")
 
-        # Run all agents concurrently, continue even if some fail
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Run all agents concurrently
+        results = await asyncio.gather(*agent_tasks.values(), return_exceptions=True)
 
         Logger.debug("All agents finished")
 
-        # Log results for each agent
-        for i, result in enumerate(results):
+        # Log results with agent names
+        for agent_name, result in zip(agent_tasks.keys(), results):
             if isinstance(result, Exception):
-                Logger.error(
-                    f"Agent #{i} failed: {result}",
-                    exc_info=True,
-                )
+                Logger.error(f"Agent {agent_name} failed: {result}", exc_info=True)
             else:
-                Logger.info(
-                    f"Agent #{i} completed successfully",
-                )
+                Logger.info(f"Agent {agent_name} completed successfully")
 
         self.validate_succession(analysis_files)
+
 
     def validate_succession(self, analysis_files: List[Path]):
         missing_files = []
