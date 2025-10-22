@@ -1,14 +1,22 @@
-analyzer: {}
+analyzer: {
+  exclude_code_structure: false,  # Enable for folder/class scanning
+  exclude_data_flow: false,       # For command/query flows
+  exclude_dependencies: false,    # For NuGet/usings
+  exclude_request_flow: true,     # Disable if not API-focused yet
+  exclude_api_analysis: false,     # Keep for any APIs
+  exclude_bounded_contexts: false,
+  exclude_ddd: false
+}
 
 documenter:
   readme:
     exclude_additional_documentation: false
-    exclude_api_documentation: true
+    exclude_api_documentation: false
     exclude_architecture: false
-    exclude_c4_model: true
+    exclude_c4_model: false
     exclude_dependencies_and_integration: false
-    exclude_development_notes: true
-    exclude_known_issues_and_limitations: true
+    exclude_development_notes: false
+    exclude_known_issues_and_limitations: false
     exclude_project_overview: false
     exclude_repository_structure: false
     exclude_table_of_contents: false

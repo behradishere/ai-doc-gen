@@ -16,6 +16,17 @@ agents:
       You will look for interfaces, abstract classes, and factories as indicators of architectural boundaries.
       You will identify which components are domain-specific vs. infrastructure/framework-related.
       Always return the final response in Markdown format using the structure specified in the user prompt.
+      
+      The codebase is a .NET C# ERP project using Domain-Driven Design (DDD). Analyze .cs files for:
+      Bounded Contexts: Top-level folders in Application/ like Hr, Acc, Buy, Ast.
+      Sub-modules: Nested folders like Hr/Definitions/ContractType.
+      Classes: Commands (e.g., CreateContractTypeCommand.cs), Queries, Validators.
+      Namespaces: e.g., Application.Hr.Definitions.ContractType.Commands.
+      Group by bounded context and layer (Application, Domain, Infrastructure).
+      Group analysis by bounded contexts (e.g., HR from Application/Hr/) and sub-modules (e.g., ContractType from Hr/Definitions/ContractType/).
+      Exclude 'Common/' directory.
+      Output in structured format with sections for each bounded context/sub-module, using JSON-like markdown code blocks for easy parsing.
+
     user_prompt: >
       TASK: Analyze Code Structure
 
@@ -34,6 +45,8 @@ agents:
       - Code organization principles and patterns
 
       Focus on the "what" and "why" of components rather than implementation details.
+      Identify DDD layers: Application (commands/queries in Commands/Queries subfolders), Domain (entities/aggregates), Infrastructure (repositories, configs).
+      Map namespaces to wiki structure, e.g., Application.Hr.Definitions.ContractType.Commands -> BoundedContext/HR/ContractType/Application.md.
       Be sure that you are describing existing code, not hypothetical code.
       Some documents are already available in {{ repo_path }}/.ai/docs/. You can use them to understand the codebase better.
 
@@ -59,6 +72,9 @@ agents:
       ## Available Documentation
       Include document paths and evaluate documentation quality.
 
+      ## Bounded Contexts Summary
+      List detected bounded contexts and sub-modules.
+
       Fill in each section with appropriate content but maintain this exact markdown structure.
       The output will be directly written to a file without any processing.
       This file should be easily readable by AI (will be used by AI agents only).
@@ -80,6 +96,11 @@ agents:
       You will identify where data validation occurs and how errors are handled.
       You will pay attention to how data is transformed between layers (e.g., API to domain to persistence).
       Always return the final response in Markdown format using the structure specified in the user prompt.
+
+      Trace DDD flows: Commands modifying aggregates, Queries reading data. Focus on CQRS patterns in Application/ subfolders.
+      Group analysis by bounded contexts (e.g., HR from Application/Hr/) and sub-modules (e.g., ContractType from Hr/Definitions/ContractType/).
+      Exclude 'Common/' directory.
+      Output in structured format with sections for each bounded context/sub-module, using JSON-like markdown code blocks for easy parsing.
     user_prompt: >
       TASK: Analyze Data Flow
 
@@ -98,6 +119,7 @@ agents:
       - State management approaches
       - Caching mechanisms
       - Data persistence patterns
+      - DDD aggregates and how data flows through CQRS (e.g., CreateContractTypeCommand modifying entities).
 
       Be sure that you are describing existing code, not hypothetical code.
       Some documents are already available in {{ repo_path }}/.ai/docs/. You can use them to understand the codebase better.
@@ -121,6 +143,9 @@ agents:
 
       ## Data Lifecycle Diagrams
 
+      ## Bounded Contexts Summary
+      List detected bounded contexts and sub-modules.
+
       Fill in each section with appropriate content but maintain this exact markdown structure.
       The output will be directly written to a file without any processing.
       This file should be easily readable by AI (will be used by AI agents only).
@@ -142,6 +167,11 @@ agents:
       You will look for factories, providers, and configuration that wires components together.
       You will identify circular dependencies or tightly coupled components.
       Always return the final response in Markdown format using the structure specified in the user prompt.
+
+      Identify 'using' directives, NuGet packages from .csproj, Entity Framework for persistence.
+      Group analysis by bounded contexts (e.g., HR from Application/Hr/) and sub-modules (e.g., ContractType from Hr/Definitions/ContractType/).
+      Exclude 'Common/' directory.
+      Output in structured format with sections for each bounded context/sub-module, using JSON-like markdown code blocks for easy parsing.
     user_prompt: >
       TASK: Analyze Dependencies
 
@@ -159,6 +189,7 @@ agents:
       - Plugin or extension systems
       - API clients for external services
       - Module coupling and cohesion
+      - Dependencies within bounded contexts (e.g., HR dependencies on shared infrastructure).
 
       Be sure that you are describing existing code, not hypothetical code.
       Some documents are already available in {{ repo_path }}/.ai/docs/. You can use them to understand the codebase better.
@@ -182,6 +213,9 @@ agents:
 
       ## Potential Dependency Issues
 
+      ## Bounded Contexts Summary
+      List detected bounded contexts and sub-modules.
+
       Fill in each section with appropriate content but maintain this exact markdown structure.
       The output will be directly written to a file without any processing.
       This file should be easily readable by AI (will be used by AI agents only).
@@ -203,6 +237,9 @@ agents:
       You will trace how request context and parameters are passed between components.
       You will pay special attention to error handling and status code generation.
       Always return the final response in Markdown format using the structure specified in the user prompt.
+      Group analysis by bounded contexts (e.g., HR from Application/Hr/) and sub-modules (e.g., ContractType from Hr/Definitions/ContractType/).
+      Exclude 'Common/' directory.
+      Output in structured format with sections for each bounded context/sub-module, using JSON-like markdown code blocks for easy parsing.
     user_prompt: >
       TASK: Analyze Request Flow
 
@@ -221,6 +258,7 @@ agents:
       - Request validation processes
       - Response formation and error handling
       - Request context propagation
+      - Trace requests through DDD layers in bounded contexts
 
       Be sure that you are describing existing code, not hypothetical code.
       Some documents are already available in {{ repo_path }}/.ai/docs/. You can use them to understand the codebase better.
@@ -244,6 +282,9 @@ agents:
 
       ## Request Lifecycle Diagram
 
+      ## Bounded Contexts Summary
+      List detected bounded contexts and sub-modules.
+
       Fill in each section with appropriate content but maintain this exact markdown structure.
       The output will be directly written to a file without any processing.
       This file should be easily readable by AI (will be used by AI agents only).
@@ -265,6 +306,10 @@ agents:
       You will distinguish between public-facing APIs and internal service-to-service communications.
       You will identify API versioning strategies and backwards compatibility considerations.
       Always return the final response in Markdown format using the structure specified in the user prompt.
+
+      Group analysis by bounded contexts (e.g., HR from Application/Hr/) and sub-modules (e.g., ContractType from Hr/Definitions/ContractType/).
+      Exclude 'Common/' directory.
+      Output in structured format with sections for each bounded context/sub-module, using JSON-like markdown code blocks for easy parsing.
     user_prompt: >
       TASK: Analyze Project APIs
 
@@ -286,6 +331,7 @@ agents:
       - API specification files (OpenAPI, proto, GraphQL schemas)
 
       Focus on practical usage information that developers need for integration.
+      Map APIs to bounded contexts (e.g., HR APIs for ContractType endpoints).
       Be sure that you are documenting actual implemented APIs, not planned or commented-out code.
       Some documents are already available in {{ repo_path }}/.ai/docs/. You can use them to understand the codebase better.
 

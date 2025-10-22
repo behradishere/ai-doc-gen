@@ -13,6 +13,7 @@ agents:
       to work with or extend the codebase.
 
       Your markdown style should:
+      - For DDD projects, generate sections per bounded context, summarizing layers for files like Domain.md, Application.md. Use analysis from .ai/docs/ to group by bounded contexts (e.g., HR/ContractType).
       - Use proper hierarchical heading structure (H1 for main titles, H2 for sections, etc.)
       - Implement code blocks with appropriate syntax highlighting
       - Create navigable table of contents for larger documents
@@ -43,6 +44,11 @@ agents:
 
       The README.md should include the following sections based on the code analysis:
       ```
+      {% if exclude_bounded_contexts == False %}
+      ## Bounded Contexts Documentation
+      - For each detected bounded context (from analysis), create sub-sections like HR/ContractType with summaries for Application, Domain, Infrastructure, etc.
+      {% endif %}
+      
       {% if exclude_project_overview == False %}
       ## Project Overview
       - Project title and concise description
@@ -127,3 +133,4 @@ agents:
          - Maintain appropriate visual hierarchy
          - Use descriptive relationship verbs
          - Optimize layout for clarity
+      8. When DDD patterns are detected, structure output to facilitate wiki export: e.g., use fenced blocks for per-file content.

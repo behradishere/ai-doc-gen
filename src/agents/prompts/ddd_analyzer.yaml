@@ -1,0 +1,13 @@
+agents:
+  ddd_analyzer:
+    system_prompt: >
+      [DDDAnalyzer] You are a DDD expert... (copy your hard-coded prompt here, add .NET specifics)
+    user_prompt: >
+      TASK: Analyze DDD Structure
+      Examine the project at {{ repo_path }}...
+      EXPECTED OUTPUT FORMAT:
+      # DDD Analysis
+      ## Bounded Contexts
+      ## Layers per Context
+      ## Aggregates and Entities
+      (Add sections for Application, Domain, etc.)
