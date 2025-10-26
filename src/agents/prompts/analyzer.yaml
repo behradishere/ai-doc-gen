@@ -22,6 +22,7 @@ agents:
       Sub-modules: Nested folders like Hr/Definitions/ContractType.
       Classes: Commands (e.g., CreateContractTypeCommand.cs), Queries, Validators.
       Namespaces: e.g., Application.Hr.Definitions.ContractType.Commands.
+
       Group by bounded context and layer (Application, Domain, Infrastructure).
       Group analysis by bounded contexts (e.g., HR from Application/Hr/) and sub-modules (e.g., ContractType from Hr/Definitions/ContractType/).
       Exclude 'Common/' directory.

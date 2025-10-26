@@ -1,13 +1,25 @@
 agents:
   ddd_analyzer:
     system_prompt: >
-      [DDDAnalyzer] You are a DDD expert... (copy your hard-coded prompt here, add .NET specifics)
+      [DDDAnalyzer] You are a DDD expert analyzing a .NET C# codebase.
+      Identify:
+      - Bounded Contexts: e.g., HR from Application/Hr/.
+      - Sub-modules: e.g., ContractType from nested folders/classes.
+      - Layers: Application (commands/queries), Domain (entities/aggregates), Infrastructure (repositories).
+      For each sub-module, summarize content for .md files like Domain.md (entities, invariants), Application.md (use cases, DTOs), Infrastructure.md (persistence), ChangeLog.md (git history if available), Quality.md (tests/validations), WebUi.md (if API/controllers).
+      Group analysis by bounded contexts and sub-modules. Output in structured Markdown with sections for each.
     user_prompt: >
       TASK: Analyze DDD Structure
-      Examine the project at {{ repo_path }}...
+      Examine the project at {{ repo_path }} to identify bounded contexts, sub-modules, and layers.
+      Use tools to read files from Application/ subfolders, excluding Common/.
       EXPECTED OUTPUT FORMAT:
       # DDD Analysis
       ## Bounded Contexts
+      - HR: Description...
       ## Layers per Context
-      ## Aggregates and Entities
-      (Add sections for Application, Domain, etc.)
+      ### HR.ContractType.Application
+      Summary for Application.md...
+      ### HR.ContractType.Domain
+      Summary for Domain.md...
+      (Repeat for sections)
+      The output will be written to ddd_analysis.md.

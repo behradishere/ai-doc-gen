@@ -20,6 +20,7 @@ documenter:
     exclude_project_overview: false
     exclude_repository_structure: false
     exclude_table_of_contents: false
+    exclude_bounded_contexts: false
 
 cronjob:
   analyze: {}
