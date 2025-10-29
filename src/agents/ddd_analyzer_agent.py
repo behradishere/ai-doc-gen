@@ -330,7 +330,7 @@ class DDDAnalyzerAgent:
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.ddd_analyzer.system_prompts.application"),
             tools=[
-                FileReadTool().get_tool(),
+                FileReadTool(repo_path=self._config.repo_path).get_tool(),
                 ListFilesTool().get_tool(),
             ],
             instrument=True,
@@ -348,7 +348,7 @@ class DDDAnalyzerAgent:
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.ddd_analyzer.system_prompts.domain"),
             tools=[
-                FileReadTool().get_tool(),
+                FileReadTool(repo_path=self._config.repo_path).get_tool(),
                 ListFilesTool().get_tool(),
             ],
             instrument=True,
@@ -366,7 +366,7 @@ class DDDAnalyzerAgent:
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.ddd_analyzer.system_prompts.infrastructure"),
             tools=[
-                FileReadTool().get_tool(),
+                FileReadTool(repo_path=self._config.repo_path).get_tool(),
                 ListFilesTool().get_tool(),
             ],
             instrument=True,
@@ -384,7 +384,7 @@ class DDDAnalyzerAgent:
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.ddd_analyzer.system_prompts.quality"),
             tools=[
-                FileReadTool().get_tool(),
+                FileReadTool(repo_path=self._config.repo_path).get_tool(),
                 ListFilesTool().get_tool(),
             ],
             instrument=True,
@@ -402,7 +402,7 @@ class DDDAnalyzerAgent:
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.ddd_analyzer.system_prompts.webui"),
             tools=[
-                FileReadTool().get_tool(),
+                FileReadTool(repo_path=self._config.repo_path).get_tool(),
                 ListFilesTool().get_tool(),
             ],
             instrument=True,
@@ -420,7 +420,7 @@ class DDDAnalyzerAgent:
             retries=config.ANALYZER_AGENT_RETRIES,
             system_prompt=self._render_prompt("agents.ddd_analyzer.system_prompts.changelog"),
             tools=[
-                FileReadTool().get_tool(),
+                FileReadTool(repo_path=self._config.repo_path).get_tool(),
                 ListFilesTool().get_tool(),
             ],
             instrument=True,
