@@ -8,6 +8,7 @@ agents:
       - Layers: Application (commands/queries), Domain (entities/aggregates), Infrastructure (repositories).
       For each sub-module, summarize content for .md files like Domain.md (entities, invariants), Application.md (use cases, DTOs), Infrastructure.md (persistence), ChangeLog.md (git history if available), Quality.md (tests/validations), WebUi.md (if API/controllers).
       Group analysis by bounded contexts and sub-modules. Output in structured Markdown with sections for each.
+    
     user_prompt: >
       TASK: Analyze DDD Structure
       Examine the project at {{ repo_path }} to identify bounded contexts, sub-modules, and layers.
@@ -17,9 +18,302 @@ agents:
       ## Bounded Contexts
       - HR: Description...
       ## Layers per Context
-      ### HR.ContractType.Application
-      Summary for Application.md...
-      ### HR.ContractType.Domain
-      Summary for Domain.md...
-      (Repeat for sections)
-      The output will be written to ddd_analysis.md.
+    
+    system_prompts:
+      application: >
+        [ApplicationLayerAnalyzer] You are a specialist in analyzing .NET Application Layer code following CQRS and DDD patterns.
+        Your task is to generate comprehensive Application.md documentation for a specific aggregate.
+        
+        FOCUS ON:
+        - Commands (Create*, Update*, Delete*) with their validators and handlers
+        - Queries (Get*, List*) with their handlers
+        - Application services and their responsibilities
+        - Validation rules and business logic
+        - DTO mappings and data transformations
+        
+        OUTPUT FORMAT:
+        # Application Layer – [AggregateName]
+        
+        ## Commands
+        
+        ### Create[AggregateName]Command
+        - **Purpose**: [Describe what this command does]
+        - **Validation**: [List validation rules from validator classes]
+        - **Handler**: [Describe handler logic and flow]
+        
+        ```csharp
+        [Include actual command class with properties]
+        ```
+        
+        ## Queries
+        
+        ### Get[AggregateName]Query
+        - **Purpose**: [Describe what this query returns]
+        - **Handler**: [Describe query handler logic]
+        - **Return Type**: [Specify return type/DTO]
+        
+        Use the provided template content as a guide for structure and formatting.
+        
+      domain: >
+        [DomainLayerAnalyzer] You are a specialist in analyzing .NET Domain Layer code following DDD patterns.
+        Your task is to generate comprehensive Domain.md documentation for a specific aggregate.
+        
+        FOCUS ON:
+        - Domain entities and their properties
+        - Value objects and enums
+        - Business rules and invariants
+        - Domain events
+        - Aggregate relationships
+        - Table/schema mappings
+        
+        OUTPUT FORMAT:
+        # Domain Model – [AggregateName]
+        
+        The **[AggregateName]** entity represents [description of what this entity represents].
+        
+        ### Table And Schema
+        ```csharp
+        [Table("[TableName]", Schema = "[SchemaName]")]
+        ```
+        
+        ### Entity Definition:
+        ```csharp
+        [Include actual entity class with properties and attributes]
+        ```
+        
+        ### RELATIONS
+        ```csharp
+        [List related entities and navigation properties]
+        ```
+        
+        ### Business Rules
+        - [List domain invariants and business rules]
+        
+        Use the provided template content as a guide for structure and formatting.
+        
+      infrastructure: >
+        [InfrastructureLayerAnalyzer] You are a specialist in analyzing .NET Infrastructure Layer code.
+        Your task is to generate comprehensive Infrastructure.md documentation for a specific aggregate.
+        
+        FOCUS ON:
+        - Repository implementations
+        - Database configurations and mappings
+        - External service integrations
+        - Caching strategies
+        - Data access patterns
+        
+        OUTPUT FORMAT:
+        # Infrastructure: [AggregateName] Configuration
+        
+        **Namespace:** [Namespace]
+        **File:** [Configuration file name]
+        **Database Table:** [Table name with schema]
+        **Entity:** [Domain entity path]
+        
+        ---
+        
+        ## Entity Configuration
+        
+        | Property | Configuration | Notes |
+        |-----------|----------------|-------|
+        | [PropertyName] | [EF Configuration] | [Description/Notes] |
+        
+        ## Repository Implementation
+        - **Interface**: I[AggregateName]Repository
+        - **Implementation**: [AggregateName]Repository
+        - **Key Methods**: [List main repository methods]
+        
+        Use the provided template content as a guide for structure and formatting.
+        
+      quality: >
+        [QualityLayerAnalyzer] You are a specialist in analyzing testing and quality aspects of .NET code.
+        Your task is to generate comprehensive Quality.md documentation for a specific aggregate.
+        
+        FOCUS ON:
+        - Unit tests and test coverage
+        - Integration tests
+        - Performance considerations
+        - Validation scenarios
+        - Error handling patterns
+        
+        OUTPUT FORMAT:
+        # Quality & Testing – [AggregateName]
+        
+        ### Unit Tests
+        - **[CommandName]**: [Description of test scenarios]
+        - **[QueryName]**: [Description of test scenarios]
+        
+        ### Performance Tests
+        - [List performance test scenarios]
+        
+        ### Observability
+        - [Document logging and monitoring aspects]
+        
+        For detailed test cases, see the **Test Cases** section.
+        
+        Use the provided template content as a guide for structure and formatting.
+        
+      webui: >
+        [WebUILayerAnalyzer] You are a specialist in analyzing .NET Web API and UI integration code.
+        Your task is to generate comprehensive WebUi.md documentation for a specific aggregate.
+        
+        FOCUS ON:
+        - API controllers and endpoints
+        - HTTP methods and routes
+        - Request/response DTOs
+        - Authentication and authorization
+        - Frontend integration points
+        
+        OUTPUT FORMAT:
+        # [AggregateName]Controller
+        
+        **Namespace:** [Controller namespace]
+        **Inherits:** [Base controller class]
+        **Purpose:** [Controller description]
+        
+        ---
+        
+        ## Create [AggregateName]
+        
+        **Method:** `POST`
+        **Route:** `/[route]`
+        
+        [Description]
+        
+        **Request Body:**
+        ```json
+        [JSON example]
+        ```
+        
+        **Response:**
+        ```json
+        [JSON example]
+        ```
+        
+        Use the provided template content as a guide for structure and formatting.
+        
+      changelog: >
+        [ChangeLogAnalyzer] You are a specialist in analyzing version history and changes in software projects.
+        Your task is to generate comprehensive ChangeLog.md documentation for a specific aggregate.
+        
+        FOCUS ON:
+        - Recent changes and modifications
+        - Version history
+        - Breaking changes
+        - Migration notes
+        - Feature additions and removals
+        
+        OUTPUT FORMAT:
+        # Change History – [AggregateName]
+        
+        ## Latest Version
+        - **Version**: [Version number]
+        - **Date**: [Date]
+        - **Changes**:
+          * [List of changes]
+        
+        ## Previous Versions
+        [List previous versions with changes]
+        
+        ## Migration Notes
+        [Any migration or upgrade notes]
+        
+        Use the provided template content as a guide for structure and formatting.
+    
+    layer_prompts:
+      application: >
+        Generate Application Layer documentation for {{ context_name }}/{{ aggregate_name }}.
+        
+        Analyze the following files:
+        {% for file_path, content in relevant_files.items() %}
+        ## {{ file_path }}
+        ```csharp
+        {{ content }}
+        ```
+        {% endfor %}
+        
+        Use this template as a guide:
+        {{ template_content }}
+        
+        Focus on Commands, Queries, Validators, and Handlers. Include actual code snippets and validation rules.
+        
+      domain: >
+        Generate Domain Layer documentation for {{ context_name }}/{{ aggregate_name }}.
+        
+        Analyze the following files:
+        {% for file_path, content in relevant_files.items() %}
+        ## {{ file_path }}
+        ```csharp
+        {{ content }}
+        ```
+        {% endfor %}
+        
+        Use this template as a guide:
+        {{ template_content }}
+        
+        Focus on Entities, Value Objects, Business Rules, and Domain Events. Include table mappings and relationships.
+        
+      infrastructure: >
+        Generate Infrastructure Layer documentation for {{ context_name }}/{{ aggregate_name }}.
+        
+        Analyze the following files:
+        {% for file_path, content in relevant_files.items() %}
+        ## {{ file_path }}
+        ```csharp
+        {{ content }}
+        ```
+        {% endfor %}
+        
+        Use this template as a guide:
+        {{ template_content }}
+        
+        Focus on Repository implementations, EF configurations, and external service integrations.
+        
+      quality: >
+        Generate Quality & Testing documentation for {{ context_name }}/{{ aggregate_name }}.
+        
+        Analyze the following files:
+        {% for file_path, content in relevant_files.items() %}
+        ## {{ file_path }}
+        ```csharp
+        {{ content }}
+        ```
+        {% endfor %}
+        
+        Use this template as a guide:
+        {{ template_content }}
+        
+        Focus on Unit Tests, Integration Tests, Performance considerations, and Validation scenarios.
+        
+      webui: >
+        Generate WebUI Layer documentation for {{ context_name }}/{{ aggregate_name }}.
+        
+        Analyze the following files:
+        {% for file_path, content in relevant_files.items() %}
+        ## {{ file_path }}
+        ```csharp
+        {{ content }}
+        ```
+        {% endfor %}
+        
+        Use this template as a guide:
+        {{ template_content }}
+        
+        Focus on API Controllers, Endpoints, DTOs, and Frontend integration points.
+        
+      changelog: >
+        Generate ChangeLog documentation for {{ context_name }}/{{ aggregate_name }}.
+        
+        Analyze the following files:
+        {% for file_path, content in relevant_files.items() %}
+        ## {{ file_path }}
+        ```csharp
+        {{ content }}
+        ```
+        {% endfor %}
+        
+        Use this template as a guide:
+        {{ template_content }}
+        
+        Focus on version history, recent changes, and migration notes. If no version history is available, 
+        create a basic structure with current version.

@@ -21,6 +21,7 @@ from handlers.analyze import AnalyzeHandler, AnalyzeHandlerConfig
 from handlers.cronjob import JobAnalyzeHandler, JobAnalyzeHandlerConfig
 from handlers.readme import ReadmeHandler, ReadmeHandlerConfig
 from handlers.wiki_exporter import WikiExporterHandler, WikiExporterConfig
+from handlers.enhanced_wiki_exporter import EnhancedWikiExporterHandler, EnhancedWikiExporterConfig
 from utils import Logger
 
 nest_asyncio.apply()
@@ -100,6 +101,19 @@ async def export_wiki(args: argparse.Namespace):
     await handler.handle()
 
 
+async def export_enhanced_wiki(args: argparse.Namespace):
+    cfg: EnhancedWikiExporterConfig = load_config(args, EnhancedWikiExporterConfig, "enhanced_wiki_exporter")
+    configure_logging(
+        repo_path=cfg.repo_path,
+        file_level=config.FILE_LOG_LEVEL,
+        console_level=config.CONSOLE_LOG_LEVEL,
+    )
+
+    handler = EnhancedWikiExporterHandler(cfg)
+
+    await handler.handle()
+
+
 def _add_field_arg(handler_group: argparse.ArgumentParser, field_name: str, field_info: FieldInfo):
     arg_name = f"--{field_name.replace('_', '-')}"
     help_text = field_info.description
@@ -170,6 +184,10 @@ def parse_args():
     # Wiki exporter command
     wiki_parser = subparsers.add_parser("export-wiki", help="Export analyzed docs to Docs/ wiki layout")
     add_handler_args(wiki_parser, WikiExporterConfig.model_fields, "Wiki Exporter Configuration")
+    
+    # Enhanced wiki exporter command
+    enhanced_wiki_parser = subparsers.add_parser("export-enhanced-wiki", help="Export DDD-analyzed docs to Docs/ wiki layout using AI")
+    add_handler_args(enhanced_wiki_parser, EnhancedWikiExporterConfig.model_fields, "Enhanced Wiki Exporter Configuration")
 
     # Cronjob command
     cronjob_parser = subparsers.add_parser("cronjob", help="Run cronjob")
@@ -220,6 +238,8 @@ async def main() -> Optional[int]:
             await document(args)
         case "export-wiki":
             await export_wiki(args)
+        case "export-enhanced-wiki":
+            await export_enhanced_wiki(args)
         case "cronjob":
             if args.sub_command == "analyze":
                 await cronjob_analyze(args)

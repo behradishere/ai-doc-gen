@@ -22,5 +22,11 @@ documenter:
     exclude_table_of_contents: false
     exclude_bounded_contexts: false
 
+wiki_exporter: {}
+
+enhanced_wiki_exporter:
+  output_path: "Docs"
+  template_path: "temp"
+
 cronjob:
   analyze: {}
