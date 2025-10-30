@@ -1,6 +1,8 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Tuple
+import asyncio
+import time
 
 from pydantic import Field
 
@@ -11,7 +13,7 @@ from agents.ddd_analyzer_agent import DDDAnalyzerAgent, DDDAnalyzerAgentConfig
 
 class EnhancedWikiExporterConfig(BaseHandlerConfig):
     output_path: Path = Field(default=Path("Docs"), description="Output path for generated Wiki (Docs/) folder")
-    template_path: Path = Field(default=Path("temp"), description="Path to template files")
+    template_path: Path = Field(default=Path("temp"), description="Path to template files for AI guidance")
 
 
 class EnhancedWikiExporterHandler(BaseHandler):
@@ -25,11 +27,27 @@ class EnhancedWikiExporterHandler(BaseHandler):
         self.config: EnhancedWikiExporterConfig = config
 
     async def handle(self) -> None:
+        """
+        Two-phase documentation generation:
+        Phase 1: Scan repository and create directory structure with empty .md files
+        Phase 2: Fill each .md file with AI-generated content using templates
+        """
+        start_time = time.time()
+        
+        print("=" * 80)
+        print("🚀 ENHANCED WIKI EXPORTER - Two-Phase Generation")
+        print("=" * 80)
+        
         Logger.info("Starting enhanced wiki exporter handler")
 
         repo_path: Path = self.config.repo_path
-        out_root: Path = (self.config.repo_path / self.config.output_path).resolve()
+        out_root: Path = (repo_path / self.config.output_path).resolve()
 
+        print(f"📂 Repository: {repo_path}")
+        print(f"📁 Output: {out_root}")
+        print(f"📋 Template: {self.config.template_path}")
+        print("=" * 80)
+        
         Logger.info(f"Exporting wiki to {out_root}")
         Logger.info(f"Analyzing .NET project at {repo_path}")
 
@@ -39,35 +57,96 @@ class EnhancedWikiExporterHandler(BaseHandler):
         )
         ddd_analyzer = DDDAnalyzerAgent(ddd_config)
 
-        # Load template files
+        # Load template files for AI guidance
         template_files = self._load_template_files()
 
+        # ============================================================
+        # PHASE 1: Structure Creation (No AI)
+        # ============================================================
+        print("\n" + "=" * 80)
+        print("📦 PHASE 1: Creating Directory Structure (No AI)")
+        print("=" * 80)
+        Logger.info("Phase 1: Creating directory structure")
+        
+        # Analyze DDD structure (no AI, just file system scan)
+        print("🔍 Scanning repository for bounded contexts and aggregates...")
+        Logger.info("Analyzing DDD structure...")
+        
+        bounded_contexts = await ddd_analyzer.analyze_ddd_structure()
+
+        if not bounded_contexts:
+            Logger.warning("No bounded contexts found!")
+            print("❌ No bounded contexts found!")
+            return
+
+        total_aggregates = sum(len(bc.aggregates) for bc in bounded_contexts.values())
+        total_files = total_aggregates * 6  # 6 layer files per aggregate
+        
+        print(f"✅ Found {len(bounded_contexts)} bounded contexts")
+        print(f"✅ Found {total_aggregates} aggregates")
+        print(f"📝 Will generate {total_files} documentation files")
+        
+        Logger.info(f"Found {len(bounded_contexts)} bounded contexts with {total_aggregates} aggregates")
+
+        # Create directory structure
+        print("\n📁 Creating directory structure...")
+        file_paths = self._create_directory_structure(out_root, bounded_contexts)
+        
+        print(f"✅ Created {len(file_paths)} empty documentation files")
+        Logger.info(f"Created {len(file_paths)} empty files in directory structure")
+
+        # ============================================================
+        # PHASE 2: AI Content Generation
+        # ============================================================
+        print("\n" + "=" * 80)
+        print("🤖 PHASE 2: Filling Files with AI-Generated Content")
+        print("=" * 80)
+        Logger.info("Phase 2: Generating AI content")
+        
+        print(f"⏱️  Estimated time: {(total_files * 12) // 60} minutes")
+        print(f"🎯 Processing {len(file_paths)} files...")
+        
+        # Process files in batches with progress monitoring
+        await self._fill_files_with_ai(ddd_analyzer, bounded_contexts, template_files, out_root)
+        
+        # Summary
+        elapsed = time.time() - start_time
+        print("\n" + "=" * 80)
+        print("✅ DOCUMENTATION GENERATION COMPLETED")
+        print("=" * 80)
+        print(f"📊 Bounded Contexts: {len(bounded_contexts)}")
+        print(f"📦 Aggregates: {total_aggregates}")
+        print(f"📄 Files Generated: {total_files}")
+        print(f"⏱️  Total Time: {elapsed // 60:.0f}m {elapsed % 60:.0f}s")
+        print(f"📁 Output: {out_root}")
+        print("=" * 80)
+        
+        Logger.info(f"Enhanced wiki export completed to {out_root}")
+        Logger.info(f"Generated {total_files} files for {len(bounded_contexts)} bounded contexts")
+
+    def _create_directory_structure(
+        self, 
+        out_root: Path, 
+        bounded_contexts: Dict[str, any]
+    ) -> List[Tuple[Path, str, str, str]]:
+        """
+        Phase 1: Create all directories and empty .md files
+        Returns: List of (file_path, bc_name, aggregate_name, layer_name) tuples
+        """
+        file_paths = []
+        
         # Create BoundedContext folder
         bc_folder = "BoundedContext"
         bc_root = out_root / bc_folder
         bc_root.mkdir(parents=True, exist_ok=True)
         
-        # Create .order file for BoundedContext
-        order_file = bc_root / ".order"
-        if not order_file.exists():
-            order_file.write_text("")
-
-        # Analyze DDD structure
-        Logger.info("Analyzing DDD structure...")
-        bounded_contexts = await ddd_analyzer.analyze_ddd_structure()
-
-        if not bounded_contexts:
-            Logger.warning("No bounded contexts found!")
-            return
-
         # Create bounded context order file
         bc_names = sorted(bounded_contexts.keys())
         (bc_root / ".order").write_text("\n".join(bc_names))
-
-        # Generate documentation for each bounded context and aggregate
+        
+        layer_files = ["Application.md", "ChangeLog.md", "Domain.md", "Infrastructure.md", "Quality.md", "WebUi.md"]
+        
         for bc_name, bc_info in bounded_contexts.items():
-            Logger.info(f"Processing bounded context: {bc_name}")
-            
             bc_dir = bc_root / bc_name
             bc_dir.mkdir(parents=True, exist_ok=True)
             
@@ -75,50 +154,94 @@ class EnhancedWikiExporterHandler(BaseHandler):
             if bc_info.aggregates:
                 (bc_dir / ".order").write_text("\n".join(sorted(bc_info.aggregates)))
             
-            # Clean up any existing .md files at BC level
-            for existing in list(bc_dir.iterdir()):
-                if existing.is_file() and existing.suffix.lower() == '.md':
-                    try:
-                        existing.unlink()
-                        Logger.debug(f"Removed existing file: {existing}")
-                    except Exception as e:
-                        Logger.warning(f"Could not remove {existing}: {e}")
-
-            # Process each aggregate
             for aggregate_name in bc_info.aggregates:
-                Logger.info(f"Processing aggregate: {bc_name}/{aggregate_name}")
-                
                 agg_dir = bc_dir / aggregate_name
                 agg_dir.mkdir(parents=True, exist_ok=True)
                 
                 # Create .order file for aggregate layers
-                layer_files = ["Application", "ChangeLog", "Domain", "Infrastructure", "Quality", "WebUi"]
-                (agg_dir / ".order").write_text("\n".join(layer_files))
+                (agg_dir / ".order").write_text("\n".join([f.replace('.md', '') for f in layer_files]))
                 
-                # Generate documentation for each layer
+                # Create empty .md files
+                for layer_file in layer_files:
+                    file_path = agg_dir / layer_file
+                    if not file_path.exists():
+                        file_path.write_text("", encoding='utf-8')
+                    
+                    layer_name = layer_file.replace('.md', '')
+                    file_paths.append((file_path, bc_name, aggregate_name, layer_name))
+                    
+                    print(f"  📄 Created: {bc_name}/{aggregate_name}/{layer_file}")
+        
+        return file_paths
+
+    async def _fill_files_with_ai(
+        self,
+        ddd_analyzer: DDDAnalyzerAgent,
+        bounded_contexts: Dict[str, any],
+        template_files: Dict[str, str],
+        out_root: Path
+    ):
+        """
+        Phase 2: Fill empty .md files with AI-generated content
+        Process in small batches with progress monitoring
+        """
+        bc_root = out_root / "BoundedContext"
+        
+        processed = 0
+        failed = 0
+        total_aggregates = sum(len(bc.aggregates) for bc in bounded_contexts.values())
+        
+        for bc_idx, (bc_name, bc_info) in enumerate(bounded_contexts.items(), 1):
+            print(f"\n{'=' * 60}")
+            print(f"📦 Bounded Context {bc_idx}/{len(bounded_contexts)}: {bc_name}")
+            print(f"{'=' * 60}")
+            
+            bc_dir = bc_root / bc_name
+            
+            for agg_idx, aggregate_name in enumerate(bc_info.aggregates, 1):
+                agg_start = time.time()
+                
+                print(f"\n🔄 [{bc_idx}.{agg_idx}] Processing {bc_name}/{aggregate_name}...")
+                Logger.info(f"Generating documentation for {bc_name}/{aggregate_name}")
+                
+                agg_dir = bc_dir / aggregate_name
+                
                 try:
+                    # Generate documentation using AI
                     docs = await ddd_analyzer.generate_aggregate_documentation(
                         bc_name, 
                         aggregate_name,
                         template_files
                     )
                     
-                    # Write generated documentation files
+                    # Write generated content to files
                     for layer_file, content in docs.items():
                         target_path = agg_dir / layer_file
                         target_path.write_text(content, encoding='utf-8')
-                        Logger.debug(f"Generated {target_path}")
+                        processed += 1
+                        
+                        # Extract first line for preview
+                        preview = content.split('\n')[0][:60] if content else "empty"
+                        print(f"  ✅ {layer_file:20s} ({len(content):5d} chars) - {preview}...")
                     
-                    Logger.info(f"Successfully generated documentation for {bc_name}/{aggregate_name}")
+                    agg_elapsed = time.time() - agg_start
+                    print(f"  ⏱️  Completed in {agg_elapsed:.1f}s ({len(docs)} files)")
                     
                 except Exception as e:
-                    Logger.error(f"Error generating documentation for {bc_name}/{aggregate_name}: {e}", exc_info=True)
+                    Logger.error(f"Error generating docs for {bc_name}/{aggregate_name}: {e}")
+                    print(f"  ❌ Error: {str(e)[:80]}")
                     
-                    # Create minimal fallback documentation
+                    # Create fallback documentation
                     self._create_fallback_documentation(agg_dir, bc_name, aggregate_name, template_files)
-
-        Logger.info(f"Enhanced wiki export completed to {out_root}")
-        Logger.info(f"Generated documentation for {len(bounded_contexts)} bounded contexts")
+                    failed += 6
+                
+                # Progress summary
+                total_processed_aggs = sum(1 for _ in range(bc_idx - 1)) * len(list(bounded_contexts.values())[0].aggregates) + agg_idx
+                progress_pct = (total_processed_aggs / total_aggregates) * 100
+                print(f"  📊 Progress: {processed} files processed, {failed} fallbacks, {progress_pct:.1f}% complete")
+                
+                # Small delay between aggregates to avoid rate limiting
+                await asyncio.sleep(0.5)
 
     def _load_template_files(self) -> Dict[str, str]:
         """

@@ -20,7 +20,6 @@ from config import load_config
 from handlers.analyze import AnalyzeHandler, AnalyzeHandlerConfig
 from handlers.cronjob import JobAnalyzeHandler, JobAnalyzeHandlerConfig
 from handlers.readme import ReadmeHandler, ReadmeHandlerConfig
-from handlers.wiki_exporter import WikiExporterHandler, WikiExporterConfig
 from handlers.enhanced_wiki_exporter import EnhancedWikiExporterHandler, EnhancedWikiExporterConfig
 from utils import Logger
 
@@ -84,19 +83,6 @@ async def cronjob_analyze(args: argparse.Namespace):
     )
 
     handler = JobAnalyzeHandler(config=cfg, gitlab_client=gitlab_client)
-
-    await handler.handle()
-
-
-async def export_wiki(args: argparse.Namespace):
-    cfg: WikiExporterConfig = load_config(args, WikiExporterConfig, "wiki_exporter")
-    configure_logging(
-        repo_path=cfg.repo_path,
-        file_level=config.FILE_LOG_LEVEL,
-        console_level=config.CONSOLE_LOG_LEVEL,
-    )
-
-    handler = WikiExporterHandler(cfg)
 
     await handler.handle()
 
@@ -180,13 +166,9 @@ def parse_args():
     # Documenter command
     document_parser = subparsers.add_parser("document", help="Run code documenter")
     add_handler_args(document_parser, ReadmeHandlerConfig.model_fields, "Documenter Configuration")
-
-    # Wiki exporter command
-    wiki_parser = subparsers.add_parser("export-wiki", help="Export analyzed docs to Docs/ wiki layout")
-    add_handler_args(wiki_parser, WikiExporterConfig.model_fields, "Wiki Exporter Configuration")
     
-    # Enhanced wiki exporter command
-    enhanced_wiki_parser = subparsers.add_parser("export-enhanced-wiki", help="Export DDD-analyzed docs to Docs/ wiki layout using AI")
+    # Enhanced wiki exporter command (main docs generation tool)
+    enhanced_wiki_parser = subparsers.add_parser("export-enhanced-wiki", help="Generate DDD documentation in Docs/ folder with two-phase AI generation")
     add_handler_args(enhanced_wiki_parser, EnhancedWikiExporterConfig.model_fields, "Enhanced Wiki Exporter Configuration")
 
     # Cronjob command
@@ -236,8 +218,6 @@ async def main() -> Optional[int]:
             await analyze(args)
         case "document":
             await document(args)
-        case "export-wiki":
-            await export_wiki(args)
         case "export-enhanced-wiki":
             await export_enhanced_wiki(args)
         case "cronjob":
