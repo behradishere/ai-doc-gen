@@ -1,5 +1,6 @@
 import asyncio
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import re
@@ -227,9 +228,49 @@ class DDDAnalyzerAgent:
                 
             except Exception as e:
                 Logger.error(f"Error generating {layer_file}: {e}")
-                docs[layer_file] = f"# {layer_file.replace('.md', '')} Layer – {aggregate_name}\n\nError generating documentation: {e}"
+                layer_name = layer_file.replace('.md', '')
+                fallback_content = self._generate_fallback_content(layer_name, aggregate_name, context_name)
+                docs[layer_file] = fallback_content
         
         return docs
+    
+    def _generate_fallback_content(self, layer_name: str, aggregate_name: str, context_name: str) -> str:
+        """
+        Generate meaningful fallback content when a layer cannot be analyzed.
+        """
+        content_map = {
+            "Application": {
+                "title": "Application Layer",
+                "message": "## No Application Layer Found\n\nThis aggregate does not have application layer implementations (commands, queries, or handlers) in the current codebase structure.\n\n## Expected Components\n\nWhen implemented, this layer would typically contain:\n- **Commands**: Create, Update, Delete operations\n- **Queries**: Get, List, Search operations\n- **Handlers**: Business logic processors\n- **Validators**: Input validation rules\n- **DTOs**: Data transfer objects"
+            },
+            "Domain": {
+                "title": "Domain Model",
+                "message": "## No Domain Layer Found\n\nThis aggregate does not have domain layer implementations (entities, value objects, or domain events) in the current codebase structure.\n\n## Expected Components\n\nWhen implemented, this layer would typically contain:\n- **Entity**: Core domain entity class\n- **Value Objects**: Domain-specific value types\n- **Domain Events**: Business event definitions\n- **Business Rules**: Domain invariants and validations\n- **Aggregate Root**: Domain aggregate boundary"
+            },
+            "Infrastructure": {
+                "title": "Infrastructure",
+                "message": "## No Infrastructure Layer Found\n\nThis aggregate does not have infrastructure layer implementations (repositories, configurations, or external services) in the current codebase structure.\n\n## Expected Components\n\nWhen implemented, this layer would typically contain:\n- **Repository**: Data access implementation\n- **Configuration**: Entity Framework mappings\n- **External Services**: Third-party integrations\n- **Caching**: Performance optimizations\n- **Database Schema**: Table and relationship definitions"
+            },
+            "Quality": {
+                "title": "Quality & Testing",
+                "message": "## No Tests Found\n\nThis aggregate does not have test implementations (unit tests, integration tests, or validation tests) in the current codebase structure.\n\n## Expected Components\n\nWhen implemented, this layer would typically contain:\n- **Unit Tests**: Command and query testing\n- **Integration Tests**: End-to-end scenarios\n- **Performance Tests**: Load and stress testing\n- **Validation Tests**: Business rule verification\n- **Mock Implementations**: Test doubles and stubs"
+            },
+            "WebUi": {
+                "title": "Web UI",
+                "message": "## No Web UI Layer Found\n\nThis aggregate does not have web UI implementations (controllers, API endpoints, or frontend integration) in the current codebase structure.\n\n## Expected Components\n\nWhen implemented, this layer would typically contain:\n- **Controller**: HTTP API endpoints\n- **Routes**: URL mapping and routing\n- **DTOs**: Request/response models\n- **Authentication**: Security and authorization\n- **Frontend Integration**: UI component binding"
+            },
+            "ChangeLog": {
+                "title": "Change History",
+                "message": "## No Change History Found\n\nThis aggregate does not have documented change history or version information in the current codebase structure.\n\n## Future Changes\n\nThis section will be updated as changes are made to this aggregate:\n\n- Version tracking\n- Feature additions\n- Breaking changes\n- Migration notes\n- Bug fixes and improvements"
+            }
+        }
+        
+        layer_info = content_map.get(layer_name, {
+            "title": layer_name,
+            "message": f"## No {layer_name} Layer Found\n\nThis aggregate does not have {layer_name.lower()} layer implementations in the current codebase structure."
+        })
+        
+        return f"# {layer_info['title']} – {aggregate_name}\n\n{layer_info['message']}\n\n---\n\n**Bounded Context**: {context_name}  \n**Aggregate**: {aggregate_name}  \n**Status**: Not implemented  \n**Last Updated**: {datetime.now().strftime('%Y-%m-%d')}\n"
     
     async def _collect_aggregate_files(self, context_path: Path, aggregate_name: str) -> List[Path]:
         """

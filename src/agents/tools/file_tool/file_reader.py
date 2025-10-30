@@ -102,10 +102,12 @@ class FileReadTool:
         
         if resolved_path is None:
             try:
-                Logger.error(f"File not found: {file_path}, tried paths: {tried_paths}")
+                Logger.warning(f"File not found: {file_path}, tried paths: {tried_paths}")
             except:
-                print(f"[ERROR] File not found: {file_path}, tried paths: {tried_paths}")
-            raise ModelRetry(message=f"File not found: {file_path} (tried {len(tried_paths)} paths)")
+                print(f"[WARNING] File not found: {file_path}, tried paths: {tried_paths}")
+            
+            # Instead of raising an error, return a helpful message
+            return f"File not found: {file_path}\n\nThis file may not exist in the current project structure. Consider:\n- Checking if the file exists with a different name\n- Looking for similar files in the same directory\n- Using List-Files tool to explore available files\n\nTried paths:\n" + "\n".join(f"- {path}" for path in tried_paths[:3])
 
         try:
             with open(resolved_path, "r") as file:
