@@ -167,9 +167,9 @@ def parse_args():
     document_parser = subparsers.add_parser("document", help="Run code documenter")
     add_handler_args(document_parser, ReadmeHandlerConfig.model_fields, "Documenter Configuration")
     
-    # Enhanced wiki exporter command (main docs generation tool)
-    enhanced_wiki_parser = subparsers.add_parser("export-enhanced-wiki", help="Generate DDD documentation in Docs/ folder with two-phase AI generation")
-    add_handler_args(enhanced_wiki_parser, EnhancedWikiExporterConfig.model_fields, "Enhanced Wiki Exporter Configuration")
+    # DDD Documentation Generator (main tool)
+    ddd_parser = subparsers.add_parser("ddd", help="Generate DDD documentation in Docs/ folder with two-phase parallel AI generation")
+    add_handler_args(ddd_parser, EnhancedWikiExporterConfig.model_fields, "DDD Documentation Generator Configuration")
 
     # Cronjob command
     cronjob_parser = subparsers.add_parser("cronjob", help="Run cronjob")
@@ -218,7 +218,7 @@ async def main() -> Optional[int]:
             await analyze(args)
         case "document":
             await document(args)
-        case "export-enhanced-wiki":
+        case "ddd":
             await export_enhanced_wiki(args)
         case "cronjob":
             if args.sub_command == "analyze":

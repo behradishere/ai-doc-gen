@@ -6,6 +6,7 @@ import time
 
 from pydantic import Field
 
+import config
 from utils import Logger
 from .base_handler import BaseHandler, BaseHandlerConfig
 from agents.ddd_analyzer_agent import DDDAnalyzerAgent, DDDAnalyzerAgentConfig
@@ -13,7 +14,7 @@ from agents.ddd_analyzer_agent import DDDAnalyzerAgent, DDDAnalyzerAgentConfig
 
 class EnhancedWikiExporterConfig(BaseHandlerConfig):
     output_path: Path = Field(default=Path("Docs"), description="Output path for generated Wiki (Docs/) folder")
-    template_path: Path = Field(default=Path("temp"), description="Path to template files for AI guidance")
+    template_path: Path = Field(default=Path(".ai/temp"), description="Path to template files for AI guidance")
 
 
 class EnhancedWikiExporterHandler(BaseHandler):
@@ -183,7 +184,7 @@ class EnhancedWikiExporterHandler(BaseHandler):
     ):
         """
         Phase 2: Fill empty .md files with AI-generated content
-        Process in small batches with progress monitoring
+        Process in parallel batches with progress monitoring
         """
         bc_root = out_root / "BoundedContext"
         
@@ -191,19 +192,21 @@ class EnhancedWikiExporterHandler(BaseHandler):
         failed = 0
         total_aggregates = sum(len(bc.aggregates) for bc in bounded_contexts.values())
         
-        for bc_idx, (bc_name, bc_info) in enumerate(bounded_contexts.items(), 1):
-            print(f"\n{'=' * 60}")
-            print(f"📦 Bounded Context {bc_idx}/{len(bounded_contexts)}: {bc_name}")
-            print(f"{'=' * 60}")
+        # Semaphore for controlling concurrency (from environment variable)
+        max_concurrent = config.DDD_MAX_CONCURRENT
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def process_aggregate_with_semaphore(bc_idx, bc_name, bc_info, agg_idx, aggregate_name):
+            """Process a single aggregate with concurrency control"""
+            nonlocal processed, failed
             
-            bc_dir = bc_root / bc_name
-            
-            for agg_idx, aggregate_name in enumerate(bc_info.aggregates, 1):
+            async with semaphore:
                 agg_start = time.time()
                 
                 print(f"\n🔄 [{bc_idx}.{agg_idx}] Processing {bc_name}/{aggregate_name}...")
                 Logger.info(f"Generating documentation for {bc_name}/{aggregate_name}")
                 
+                bc_dir = bc_root / bc_name
                 agg_dir = bc_dir / aggregate_name
                 
                 try:
@@ -236,12 +239,23 @@ class EnhancedWikiExporterHandler(BaseHandler):
                     failed += 6
                 
                 # Progress summary
-                total_processed_aggs = sum(1 for _ in range(bc_idx - 1)) * len(list(bounded_contexts.values())[0].aggregates) + agg_idx
-                progress_pct = (total_processed_aggs / total_aggregates) * 100
-                print(f"  📊 Progress: {processed} files processed, {failed} fallbacks, {progress_pct:.1f}% complete")
-                
-                # Small delay between aggregates to avoid rate limiting
-                await asyncio.sleep(0.5)
+                progress_pct = (processed + failed) / (total_aggregates * 6) * 100
+                print(f"  📊 Progress: {processed} files processed, {failed // 6} fallbacks, {progress_pct:.1f}% complete")
+        
+        # Create tasks for all aggregates
+        tasks = []
+        for bc_idx, (bc_name, bc_info) in enumerate(bounded_contexts.items(), 1):
+            print(f"\n{'=' * 60}")
+            print(f"📦 Bounded Context {bc_idx}/{len(bounded_contexts)}: {bc_name}")
+            print(f"{'=' * 60}")
+            
+            for agg_idx, aggregate_name in enumerate(bc_info.aggregates, 1):
+                task = process_aggregate_with_semaphore(bc_idx, bc_name, bc_info, agg_idx, aggregate_name)
+                tasks.append(task)
+        
+        # Process all aggregates in parallel with controlled concurrency
+        print(f"\n⚡ Processing {len(tasks)} aggregates with max {max_concurrent} concurrent requests...")
+        await asyncio.gather(*tasks)
 
     def _load_template_files(self) -> Dict[str, str]:
         """

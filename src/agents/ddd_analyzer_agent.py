@@ -61,70 +61,108 @@ class DDDAnalyzerAgent:
     
     def _discover_bounded_contexts(self) -> Dict[str, BoundedContext]:
         """
-        Discover bounded contexts by analyzing the Application layer structure.
+        Discover bounded contexts by analyzing both Application and Domain layer structures.
+        Handles cases where only one layer exists.
         """
         contexts = {}
         application_path = self._config.repo_path / "Application"
+        domain_path = self._config.repo_path / "Domain" / "Entity"
         
-        if not application_path.exists():
-            Logger.warning("Application folder not found")
-            return contexts
-            
-        # Look for bounded context folders in Application directory
-        for item in application_path.iterdir():
-            if item.is_dir() and not item.name.startswith('.'):
-                # Skip common non-BC folders
-                skip_folders = {
-                    'Common', 'Shared', 'Base', 'Core', 'Extensions', 
-                    'Interfaces', 'Abstractions', 'Constants'
-                }
-                
-                if item.name not in skip_folders:
+        # Skip common non-BC folders
+        skip_folders = {
+            'Common', 'Shared', 'Base', 'Core', 'Extensions', 
+            'Interfaces', 'Abstractions', 'Constants', 'obj', 'bin'
+        }
+        
+        # Discover from Application layer
+        if application_path.exists():
+            for item in application_path.iterdir():
+                if item.is_dir() and not item.name.startswith('.') and item.name not in skip_folders:
                     contexts[item.name] = BoundedContext(
                         name=item.name,
                         path=item
                     )
-                    Logger.debug(f"Discovered bounded context: {item.name}")
+                    Logger.debug(f"Discovered bounded context from Application: {item.name}")
+        else:
+            Logger.warning("Application folder not found")
+        
+        # Discover from Domain/Entity layer (may have BCs not in Application)
+        if domain_path.exists():
+            for item in domain_path.iterdir():
+                if item.is_dir() and not item.name.startswith('.') and item.name not in skip_folders:
+                    if item.name not in contexts:
+                        # This BC exists in Domain but not Application
+                        contexts[item.name] = BoundedContext(
+                            name=item.name,
+                            path=self._config.repo_path / "Domain" / "Entity" / item.name
+                        )
+                        Logger.debug(f"Discovered bounded context from Domain: {item.name}")
+        else:
+            Logger.warning("Domain/Entity folder not found")
+        
+        if not contexts:
+            Logger.warning("No bounded contexts found in Application or Domain layers")
         
         return contexts
     
     async def _discover_aggregates_in_context(self, context: BoundedContext) -> List[str]:
         """
-        Discover aggregates within a bounded context by analyzing folder structure
-        and namespace patterns.
+        Discover aggregates within a bounded context by analyzing both Application and Domain
+        folder structures and namespace patterns.
         """
         aggregates = set()
         
-        # Strategy 1: Look for Definitions folders
-        definitions_path = context.path / "Definitions"
-        if definitions_path.exists():
-            for item in definitions_path.iterdir():
-                if item.is_dir():
-                    aggregates.add(item.name)
+        # Paths to check for aggregates
+        application_bc_path = self._config.repo_path / "Application" / context.name
+        domain_bc_path = self._config.repo_path / "Domain" / "Entity" / context.name
         
-        # Strategy 2: Analyze Commands and Queries folders
-        for folder in context.path.rglob("*"):
-            if folder.is_dir():
-                folder_name = folder.name
-                
-                # Skip command/query action folders
-                if folder_name in ['Commands', 'Queries', 'Handlers']:
-                    continue
+        # Strategy 1: Application layer - look for Definitions, Commands, Queries folders
+        if application_bc_path.exists():
+            # Check Definitions folder
+            definitions_path = application_bc_path / "Definitions"
+            if definitions_path.exists():
+                for item in definitions_path.iterdir():
+                    if item.is_dir() and not item.name.startswith('.'):
+                        aggregates.add(item.name)
+            
+            # Analyze folder structure for aggregates with Commands/Queries
+            for folder in application_bc_path.rglob("*"):
+                if folder.is_dir():
+                    folder_name = folder.name
                     
-                # Skip action-named folders
-                action_prefixes = ['Create', 'Update', 'Delete', 'Get', 'Add', 'Remove']
-                if any(folder_name.startswith(prefix) for prefix in action_prefixes):
-                    continue
-                
-                # If this folder contains Commands or Queries subfolders,
-                # it's likely an aggregate
-                if any((folder / subfolder).exists() for subfolder in ['Commands', 'Queries']):
-                    aggregates.add(folder_name)
+                    # Skip command/query action folders
+                    if folder_name in ['Commands', 'Queries', 'Handlers', 'Validators', 'DTOs']:
+                        continue
+                        
+                    # Skip action-named folders
+                    action_prefixes = ['Create', 'Update', 'Delete', 'Get', 'Add', 'Remove', 'List']
+                    if any(folder_name.startswith(prefix) for prefix in action_prefixes):
+                        continue
+                    
+                    # If this folder contains Commands or Queries subfolders, it's likely an aggregate
+                    if any((folder / subfolder).exists() for subfolder in ['Commands', 'Queries']):
+                        aggregates.add(folder_name)
+        
+        # Strategy 2: Domain layer - look for entity classes
+        if domain_bc_path.exists():
+            for item in domain_bc_path.iterdir():
+                if item.is_file() and item.suffix == '.cs' and not item.name.startswith('.'):
+                    # Entity file names are usually the aggregate name
+                    entity_name = item.stem
+                    # Skip common base classes
+                    if entity_name not in ['BaseEntity', 'Entity', 'AggregateRoot', 'ValueObject']:
+                        aggregates.add(entity_name)
         
         # Strategy 3: Analyze C# files for namespace patterns
-        cs_files = list(context.path.rglob("*.cs"))
-        namespace_aggregates = await self._extract_aggregates_from_namespaces(cs_files, context.name)
-        aggregates.update(namespace_aggregates)
+        cs_files = []
+        if application_bc_path.exists():
+            cs_files.extend(list(application_bc_path.rglob("*.cs")))
+        if domain_bc_path.exists():
+            cs_files.extend(list(domain_bc_path.rglob("*.cs")))
+        
+        if cs_files:
+            namespace_aggregates = await self._extract_aggregates_from_namespaces(cs_files, context.name)
+            aggregates.update(namespace_aggregates)
         
         # Clean up aggregate names
         cleaned_aggregates = []
